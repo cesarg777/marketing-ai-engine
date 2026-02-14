@@ -41,8 +41,17 @@ class Config:
     # Google Analytics
     GA_PROPERTY_ID = os.getenv("GOOGLE_ANALYTICS_PROPERTY_ID", "")
 
+    # Supabase
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+
     # Database
     DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR}/marketing_engine.db")
+
+    # Frontend URL (for CORS in production)
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     # Default niches
     DEFAULT_NICHES = [

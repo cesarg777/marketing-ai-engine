@@ -11,9 +11,11 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from tools.config import Config
 from backend.database import create_tables
+from backend.auth import get_current_user
 from backend.routers import research, templates, content, amplification, metrics, languages, videos
 
 app = FastAPI(
@@ -22,9 +24,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# CORS — allow both local dev and production frontend
+cors_origins = ["http://localhost:3000"]
+if Config.FRONTEND_URL and Config.FRONTEND_URL not in cors_origins:
+    cors_origins.append(Config.FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,3 +55,13 @@ def on_startup():
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.get("/api/auth/me")
+def auth_me(user: dict = Depends(get_current_user)):
+    """Verify token and return current user info."""
+    return {
+        "id": user.get("sub"),
+        "email": user.get("email"),
+        "role": user.get("role"),
+    }
