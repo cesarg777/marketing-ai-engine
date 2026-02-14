@@ -5,7 +5,7 @@ import { Megaphone, FileText, Mail, Globe, Loader2 } from "lucide-react";
 
 interface Candidate {
   content: {
-    id: number;
+    id: string;
     title: string;
     language: string;
     status: string;
@@ -16,7 +16,7 @@ interface Candidate {
 
 export default function AmplifyPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [amplifying, setAmplifying] = useState<number | null>(null);
+  const [amplifying, setAmplifying] = useState<string | null>(null);
 
   useEffect(() => {
     getAmplificationCandidates()
@@ -24,7 +24,7 @@ export default function AmplifyPage() {
       .catch(() => {});
   }, []);
 
-  const handleAmplifyBlog = async (contentId: number) => {
+  const handleAmplifyBlog = async (contentId: string) => {
     setAmplifying(contentId);
     try {
       await amplifyToBlog(contentId);

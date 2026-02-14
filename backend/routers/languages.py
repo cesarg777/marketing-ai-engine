@@ -16,7 +16,7 @@ def list_languages(active_only: bool = False, db: Session = Depends(get_db)):
 
 
 @router.get("/{language_id}", response_model=LanguageResponse)
-def get_language(language_id: int, db: Session = Depends(get_db)):
+def get_language(language_id: str, db: Session = Depends(get_db)):
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:
         raise HTTPException(status_code=404, detail="Language not found")
@@ -36,7 +36,7 @@ def create_language(data: LanguageCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{language_id}", response_model=LanguageResponse)
-def update_language(language_id: int, data: LanguageUpdate, db: Session = Depends(get_db)):
+def update_language(language_id: str, data: LanguageUpdate, db: Session = Depends(get_db)):
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:
         raise HTTPException(status_code=404, detail="Language not found")
@@ -48,7 +48,7 @@ def update_language(language_id: int, data: LanguageUpdate, db: Session = Depend
 
 
 @router.delete("/{language_id}")
-def delete_language(language_id: int, db: Session = Depends(get_db)):
+def delete_language(language_id: str, db: Session = Depends(get_db)):
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:
         raise HTTPException(status_code=404, detail="Language not found")

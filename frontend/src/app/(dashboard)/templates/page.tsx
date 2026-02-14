@@ -26,12 +26,12 @@ export default function TemplatesPage() {
     load();
   }, []);
 
-  const handleDuplicate = async (id: number) => {
+  const handleDuplicate = async (id: string) => {
     await duplicateTemplate(id);
     load();
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("Deactivate this template?")) return;
     await deleteTemplate(id);
     load();

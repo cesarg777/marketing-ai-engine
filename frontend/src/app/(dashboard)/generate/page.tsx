@@ -66,9 +66,9 @@ function GeneratePage() {
 
     try {
       const res = await generateContent({
-        problem_id: selectedProblem ? parseInt(selectedProblem) : undefined,
+        problem_id: selectedProblem || undefined,
         custom_topic: customTopic || undefined,
-        template_id: parseInt(selectedTemplate),
+        template_id: selectedTemplate,
         language: selectedLanguage,
         tone,
         additional_instructions: instructions,

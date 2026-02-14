@@ -27,7 +27,7 @@ class TemplateUpdate(BaseModel):
 
 
 class TemplateResponse(BaseModel):
-    id: int
+    id: str
     name: str
     slug: str
     content_type: str

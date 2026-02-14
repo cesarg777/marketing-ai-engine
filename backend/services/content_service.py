@@ -15,6 +15,7 @@ def generate_content_item(
     country: str | None,
     tone: str,
     additional_instructions: str,
+    org_id: str,
 ) -> ContentItem:
     """Generate content using Claude API and save to database."""
     from tools.content.generate_text import generate
@@ -42,6 +43,7 @@ def generate_content_item(
     )
 
     item = ContentItem(
+        org_id=org_id,
         problem_id=problem.id if problem else None,
         template_id=template.id,
         title=content_data.get("title", topic),
@@ -64,6 +66,7 @@ def translate_content_item(
     original: ContentItem,
     target_language: str,
     target_country: str | None,
+    org_id: str,
 ) -> ContentItem:
     """Translate a content item to another language."""
     from tools.content.translate import translate
@@ -76,6 +79,7 @@ def translate_content_item(
     )
 
     item = ContentItem(
+        org_id=org_id,
         problem_id=original.problem_id,
         template_id=original.template_id,
         title=translated_data.get("title", original.title),

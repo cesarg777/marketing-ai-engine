@@ -10,8 +10,8 @@ class ResearchTriggerRequest(BaseModel):
 
 
 class ResearchProblemResponse(BaseModel):
-    id: int
-    week_id: int
+    id: str
+    week_id: str
     title: str
     description: str
     severity: int
@@ -31,7 +31,7 @@ class ResearchProblemResponse(BaseModel):
 
 
 class ResearchWeekResponse(BaseModel):
-    id: int
+    id: str
     week_start: date
     status: str
     created_at: datetime

@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from tools.config import Config
 from backend.database import create_tables
 from backend.auth import get_current_user
-from backend.routers import research, templates, content, amplification, metrics, languages, videos
+from backend.routers import research, templates, content, amplification, metrics, languages, videos, onboarding
 
 app = FastAPI(
     title="Siete Marketing Engine",
@@ -45,6 +45,7 @@ app.include_router(content.router, prefix="/api/content", tags=["content"])
 app.include_router(amplification.router, prefix="/api/amplification", tags=["amplification"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
+app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboarding"])
 
 
 @app.on_event("startup")

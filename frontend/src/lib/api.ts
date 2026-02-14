@@ -28,22 +28,22 @@ export const createLanguage = (data: {
   flag_emoji?: string;
 }) => api.post("/languages/", data);
 
-export const updateLanguage = (id: number, data: Record<string, unknown>) =>
+export const updateLanguage = (id: string, data: Record<string, unknown>) =>
   api.put(`/languages/${id}`, data);
 
-export const deleteLanguage = (id: number) => api.delete(`/languages/${id}`);
+export const deleteLanguage = (id: string) => api.delete(`/languages/${id}`);
 
 // --- Research ---
 export const getResearchWeeks = (limit = 10) =>
   api.get("/research/weeks", { params: { limit } });
 
-export const getResearchWeek = (weekId: number) =>
+export const getResearchWeek = (weekId: string) =>
   api.get(`/research/weeks/${weekId}`);
 
 export const getResearchProblems = (params?: Record<string, string | number>) =>
   api.get("/research/problems", { params });
 
-export const getResearchProblem = (id: number) =>
+export const getResearchProblem = (id: string) =>
   api.get(`/research/problems/${id}`);
 
 export const triggerResearch = (data?: {
@@ -55,62 +55,62 @@ export const triggerResearch = (data?: {
 export const getTemplates = (activeOnly = false) =>
   api.get("/templates/", { params: activeOnly ? { active_only: true } : {} });
 
-export const getTemplate = (id: number) => api.get(`/templates/${id}`);
+export const getTemplate = (id: string) => api.get(`/templates/${id}`);
 
 export const createTemplate = (data: Record<string, unknown>) =>
   api.post("/templates/", data);
 
-export const updateTemplate = (id: number, data: Record<string, unknown>) =>
+export const updateTemplate = (id: string, data: Record<string, unknown>) =>
   api.put(`/templates/${id}`, data);
 
-export const deleteTemplate = (id: number) => api.delete(`/templates/${id}`);
+export const deleteTemplate = (id: string) => api.delete(`/templates/${id}`);
 
-export const duplicateTemplate = (id: number) =>
+export const duplicateTemplate = (id: string) =>
   api.post(`/templates/${id}/duplicate`);
 
 // --- Content ---
 export const getContentItems = (params?: Record<string, string | number>) =>
   api.get("/content/", { params });
 
-export const getContentItem = (id: number) => api.get(`/content/${id}`);
+export const getContentItem = (id: string) => api.get(`/content/${id}`);
 
 export const generateContent = (data: {
-  problem_id?: number;
+  problem_id?: string;
   custom_topic?: string;
-  template_id: number;
+  template_id: string;
   language: string;
   country?: string;
   tone?: string;
   additional_instructions?: string;
 }) => api.post("/content/generate", data);
 
-export const updateContent = (id: number, data: Record<string, unknown>) =>
+export const updateContent = (id: string, data: Record<string, unknown>) =>
   api.put(`/content/${id}`, data);
 
-export const deleteContent = (id: number) => api.delete(`/content/${id}`);
+export const deleteContent = (id: string) => api.delete(`/content/${id}`);
 
 export const translateContent = (
-  id: number,
+  id: string,
   data: { target_language: string; target_country?: string }
 ) => api.post(`/content/${id}/translate`, data);
 
-export const publishContent = (id: number, channel: string) =>
+export const publishContent = (id: string, channel: string) =>
   api.post(`/content/${id}/publish`, { channel });
 
-export const getContentVersions = (id: number) =>
+export const getContentVersions = (id: string) =>
   api.get(`/content/${id}/versions`);
 
 // --- Amplification ---
 export const getAmplificationCandidates = () =>
   api.get("/amplification/candidates");
 
-export const amplifyToBlog = (contentId: number) =>
+export const amplifyToBlog = (contentId: string) =>
   api.post("/amplification/blog", null, { params: { content_id: contentId } });
 
-export const createNewsletter = (contentIds: number[]) =>
+export const createNewsletter = (contentIds: string[]) =>
   api.post("/amplification/newsletter", contentIds);
 
-export const createLandingPage = (contentId: number) =>
+export const createLandingPage = (contentId: string) =>
   api.post("/amplification/landing-page", null, { params: { content_id: contentId } });
 
 // --- Metrics ---
@@ -127,7 +127,7 @@ export const importLinkedInCSV = (file: File) => {
   });
 };
 
-export const getContentMetrics = (contentId: number) =>
+export const getContentMetrics = (contentId: string) =>
   api.get(`/metrics/content/${contentId}`);
 
 export const getWeeklyReports = () => api.get("/metrics/reports");
@@ -136,18 +136,24 @@ export const getWeeklyReports = () => api.get("/metrics/reports");
 export const getVideos = (params?: { status?: string; limit?: number }) =>
   api.get("/videos/", { params });
 
-export const getVideo = (id: number) => api.get(`/videos/${id}`);
+export const getVideo = (id: string) => api.get(`/videos/${id}`);
 
 export const generateVideo = (data: {
-  content_item_id: number;
+  content_item_id: string;
   provider?: string;
   avatar_id?: string;
   language?: string;
 }) => api.post("/videos/generate", data);
 
-export const getVideoStatus = (id: number) => api.get(`/videos/${id}/status`);
+export const getVideoStatus = (id: string) => api.get(`/videos/${id}/status`);
 
 export const getProviderAvatars = (provider: string) =>
   api.get(`/videos/providers/${provider}/avatars`);
+
+// --- Onboarding ---
+export const checkOnboardingStatus = () => api.get("/onboarding/status");
+
+export const setupOrganization = (data: { org_name: string; org_slug: string }) =>
+  api.post("/onboarding/setup", data);
 
 export default api;

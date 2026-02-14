@@ -2,6 +2,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database import get_db
+from backend.auth import get_current_org_id
 from backend.models.content import ContentItem, Publication
 from backend.models.template import ContentTemplate
 from backend.models.research import ResearchProblem
@@ -21,8 +22,9 @@ def list_content(
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
 ):
-    query = db.query(ContentItem)
+    query = db.query(ContentItem).filter(ContentItem.org_id == org_id)
     if language:
         query = query.filter(ContentItem.language == language)
     if status:
@@ -38,15 +40,27 @@ def list_content(
 
 
 @router.get("/{content_id}", response_model=ContentItemResponse)
-def get_content(content_id: int, db: Session = Depends(get_db)):
-    item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
+def get_content(
+    content_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Content not found")
     return item
 
 
 @router.post("/generate", response_model=ContentItemResponse)
-def generate_content(data: ContentGenerateRequest, db: Session = Depends(get_db)):
+def generate_content(
+    data: ContentGenerateRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     """Generate content using Claude API based on a problem + template."""
     template = db.query(ContentTemplate).filter(ContentTemplate.id == data.template_id).first()
     if not template:
@@ -63,7 +77,6 @@ def generate_content(data: ContentGenerateRequest, db: Session = Depends(get_db)
     if not topic:
         raise HTTPException(status_code=400, detail="Provide either problem_id or custom_topic")
 
-    # Call the content generation service
     from backend.services.content_service import generate_content_item
     item = generate_content_item(
         db=db,
@@ -74,13 +87,23 @@ def generate_content(data: ContentGenerateRequest, db: Session = Depends(get_db)
         country=data.country,
         tone=data.tone,
         additional_instructions=data.additional_instructions,
+        org_id=org_id,
     )
     return item
 
 
 @router.put("/{content_id}", response_model=ContentItemResponse)
-def update_content(content_id: int, data: ContentUpdateRequest, db: Session = Depends(get_db)):
-    item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
+def update_content(
+    content_id: str,
+    data: ContentUpdateRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Content not found")
     for key, value in data.model_dump(exclude_unset=True).items():
@@ -91,8 +114,16 @@ def update_content(content_id: int, data: ContentUpdateRequest, db: Session = De
 
 
 @router.delete("/{content_id}")
-def delete_content(content_id: int, db: Session = Depends(get_db)):
-    item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
+def delete_content(
+    content_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Content not found")
     db.delete(item)
@@ -101,9 +132,18 @@ def delete_content(content_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{content_id}/translate", response_model=ContentItemResponse)
-def translate_content(content_id: int, data: TranslateRequest, db: Session = Depends(get_db)):
+def translate_content(
+    content_id: str,
+    data: TranslateRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     """Translate content to another language, creating a new linked content item."""
-    item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Content not found")
 
@@ -113,14 +153,24 @@ def translate_content(content_id: int, data: TranslateRequest, db: Session = Dep
         original=item,
         target_language=data.target_language,
         target_country=data.target_country,
+        org_id=org_id,
     )
     return translated
 
 
 @router.post("/{content_id}/publish", response_model=PublicationResponse)
-def publish_content(content_id: int, data: PublishRequest, db: Session = Depends(get_db)):
+def publish_content(
+    content_id: str,
+    data: PublishRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     """Publish content to a channel."""
-    item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Content not found")
 
@@ -130,13 +180,24 @@ def publish_content(content_id: int, data: PublishRequest, db: Session = Depends
 
 
 @router.get("/{content_id}/versions", response_model=list[ContentItemResponse])
-def get_content_versions(content_id: int, db: Session = Depends(get_db)):
+def get_content_versions(
+    content_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     """Get all translations and amplifications of a content item."""
-    item = db.query(ContentItem).filter(ContentItem.id == content_id).first()
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Content not found")
-    # Find root parent
     root_id = item.parent_id or item.id
-    children = db.query(ContentItem).filter(ContentItem.parent_id == root_id).all()
+    children = (
+        db.query(ContentItem)
+        .filter(ContentItem.parent_id == root_id, ContentItem.org_id == org_id)
+        .all()
+    )
     root = db.query(ContentItem).filter(ContentItem.id == root_id).first()
     return [root] + children if root else children

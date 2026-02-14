@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import date, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -5,11 +6,11 @@ from backend.models.content import ContentItem
 from backend.models.metrics import ContentMetric, WeeklyReport
 
 
-def generate_report(db: Session, week_start: date) -> WeeklyReport:
+def generate_report(db: Session, week_start: date, org_id: str = "") -> WeeklyReport:
     """Generate AI-powered weekly performance report."""
     week_end = week_start + timedelta(days=7)
 
-    # Get metrics for the week
+    # Get metrics for the week, scoped to org
     metrics = (
         db.query(
             ContentItem.id,
@@ -21,7 +22,11 @@ def generate_report(db: Session, week_start: date) -> WeeklyReport:
             func.sum(ContentMetric.conversions).label("conversions"),
         )
         .join(ContentMetric, ContentMetric.content_item_id == ContentItem.id)
-        .filter(ContentMetric.date >= week_start, ContentMetric.date < week_end)
+        .filter(
+            ContentItem.org_id == org_id,
+            ContentMetric.date >= week_start,
+            ContentMetric.date < week_end,
+        )
         .group_by(ContentItem.id)
         .order_by(func.sum(ContentMetric.engagement).desc())
         .all()
@@ -29,6 +34,7 @@ def generate_report(db: Session, week_start: date) -> WeeklyReport:
 
     if not metrics:
         report = WeeklyReport(
+            org_id=org_id,
             week_start=week_start,
             top_content_ids=[],
             ai_insights="No metrics data available for this week.",
@@ -68,6 +74,7 @@ def generate_report(db: Session, week_start: date) -> WeeklyReport:
         recommendations = [{"action": "Amplify top 3 performers", "priority": "high"}]
 
     report = WeeklyReport(
+        org_id=org_id,
         week_start=week_start,
         top_content_ids=top_ids,
         ai_insights=ai_insights,

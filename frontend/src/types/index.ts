@@ -1,5 +1,5 @@
 export interface Language {
-  id: number;
+  id: string;
   code: string;
   name: string;
   native_name: string;
@@ -8,7 +8,7 @@ export interface Language {
 }
 
 export interface ResearchWeek {
-  id: number;
+  id: string;
   week_start: string;
   status: string;
   problem_count: number;
@@ -17,8 +17,8 @@ export interface ResearchWeek {
 }
 
 export interface ResearchProblem {
-  id: number;
-  week_id: number;
+  id: string;
+  week_id: string;
   title: string;
   description: string;
   severity: number;
@@ -36,7 +36,7 @@ export interface ResearchProblem {
 }
 
 export interface ContentTemplate {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   content_type: string;
@@ -63,9 +63,9 @@ export interface TemplateField {
 }
 
 export interface ContentItem {
-  id: number;
-  problem_id: number | null;
-  template_id: number;
+  id: string;
+  problem_id: string | null;
+  template_id: string;
   title: string;
   language: string;
   country: string | null;
@@ -75,7 +75,7 @@ export interface ContentItem {
   tone: string;
   generation_model: string;
   generation_tokens: number;
-  parent_id: number | null;
+  parent_id: string | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -85,18 +85,39 @@ export interface DashboardData {
   total_published: number;
   total_impressions: number;
   total_engagement: number;
-  top_content: { id: number; title: string; engagement: number }[];
+  top_content: { id: string; title: string; engagement: number }[];
   content_by_type: Record<string, number>;
   content_by_language: Record<string, number>;
 }
 
 export interface VideoJob {
-  id: number;
-  content_item_id: number;
+  id: string;
+  content_item_id: string;
   provider: string;
   status: string;
   video_url: string;
   thumbnail_url: string;
   duration_seconds: number;
   error_message: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string;
+  brand_voice: Record<string, unknown>;
+  settings: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  org_id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  avatar_url: string;
+  created_at: string;
 }

@@ -4,9 +4,9 @@ from datetime import datetime
 
 
 class ContentGenerateRequest(BaseModel):
-    problem_id: int | None = None
+    problem_id: str | None = None
     custom_topic: str | None = None
-    template_id: int
+    template_id: str
     language: str = "en"
     country: str | None = None
     tone: str = "professional"
@@ -30,9 +30,9 @@ class PublishRequest(BaseModel):
 
 
 class ContentItemResponse(BaseModel):
-    id: int
-    problem_id: int | None
-    template_id: int
+    id: str
+    problem_id: str | None
+    template_id: str
     title: str
     language: str
     country: str | None
@@ -42,7 +42,7 @@ class ContentItemResponse(BaseModel):
     tone: str
     generation_model: str
     generation_tokens: int
-    parent_id: int | None
+    parent_id: str | None
     created_at: datetime
     updated_at: datetime | None
 
@@ -50,8 +50,8 @@ class ContentItemResponse(BaseModel):
 
 
 class PublicationResponse(BaseModel):
-    id: int
-    content_item_id: int
+    id: str
+    content_item_id: str
     channel: str
     external_id: str
     external_url: str

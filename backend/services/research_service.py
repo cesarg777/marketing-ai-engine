@@ -13,15 +13,20 @@ def run_research_pipeline(
     week_start: date,
     niches: list[str] | None = None,
     countries: list[str] | None = None,
+    org_id: str = "",
 ) -> ResearchWeek:
-    """Run the full research pipeline: scrape → aggregate → store."""
+    """Run the full research pipeline: scrape -> aggregate -> store."""
     niches = niches or Config.DEFAULT_NICHES
     countries = countries or Config.DEFAULT_COUNTRIES
 
     # Get or create week record
-    week = db.query(ResearchWeek).filter(ResearchWeek.week_start == week_start).first()
+    week = (
+        db.query(ResearchWeek)
+        .filter(ResearchWeek.week_start == week_start, ResearchWeek.org_id == org_id)
+        .first()
+    )
     if not week:
-        week = ResearchWeek(week_start=week_start)
+        week = ResearchWeek(week_start=week_start, org_id=org_id)
         db.add(week)
         db.commit()
         db.refresh(week)

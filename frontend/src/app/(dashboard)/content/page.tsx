@@ -27,7 +27,7 @@ export default function ContentPage() {
     load();
   }, [filter.language, filter.status]);
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("Delete this content?")) return;
     await deleteContent(id);
     load();

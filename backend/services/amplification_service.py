@@ -3,7 +3,7 @@ from backend.models.content import ContentItem
 from backend.models.template import ContentTemplate
 
 
-def create_blog_from_content(db: Session, source: ContentItem) -> ContentItem:
+def create_blog_from_content(db: Session, source: ContentItem, org_id: str) -> ContentItem:
     """Expand a short-form content item into a full blog post."""
     from tools.amplification.create_blog_post import expand_to_blog
 
@@ -22,6 +22,7 @@ def create_blog_from_content(db: Session, source: ContentItem) -> ContentItem:
     )
 
     item = ContentItem(
+        org_id=org_id,
         problem_id=source.problem_id,
         template_id=blog_template.id if blog_template else source.template_id,
         title=blog_data.get("title", f"Blog: {source.title}"),
@@ -60,9 +61,8 @@ def compose_newsletter(db: Session, items: list[ContentItem]) -> dict:
     }
 
 
-def send_newsletter_email(db: Session, newsletter_id: int) -> dict:
+def send_newsletter_email(db: Session, newsletter_id: str) -> dict:
     """Send newsletter via Resend. Placeholder for MVP."""
-    # TODO: Implement with Resend API when ready
     return {"status": "not_implemented", "message": "Configure Resend API key to enable sending"}
 
 

@@ -6,7 +6,7 @@ from backend.models.content import ContentItem
 
 def create_video_job(
     db: Session,
-    content_item_id: int,
+    content_item_id: str,
     provider: str,
     avatar_id: str,
     language: str,
@@ -51,7 +51,7 @@ def create_video_job(
     return job
 
 
-def refresh_video_status(db: Session, video_id: int) -> VideoJob | None:
+def refresh_video_status(db: Session, video_id: str) -> VideoJob | None:
     """Check the provider for updated status on a video job."""
     job = db.query(VideoJob).filter(VideoJob.id == video_id).first()
     if not job or job.status in ("completed", "failed"):

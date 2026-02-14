@@ -19,7 +19,7 @@ class LanguageUpdate(BaseModel):
 
 
 class LanguageResponse(BaseModel):
-    id: int
+    id: str
     code: str
     name: str
     native_name: str

@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from backend.database import SessionLocal, create_tables
 from backend.models.language import Language
 from backend.models.template import ContentTemplate
-from backend.models.config import SystemConfig
+from backend.models.config import OrgConfig
 
 DEFAULT_LANGUAGES = [
     {"code": "en", "name": "English", "native_name": "English", "flag_emoji": "\U0001F1FA\U0001F1F8"},
@@ -228,12 +228,8 @@ def seed():
                 db.add(ContentTemplate(**tmpl_data))
                 print(f"  + Template: {tmpl_data['name']}")
 
-        # Seed config
-        existing_config = {c.key for c in db.query(SystemConfig).all()}
-        for cfg_data in DEFAULT_CONFIG:
-            if cfg_data["key"] not in existing_config:
-                db.add(SystemConfig(**cfg_data))
-                print(f"  + Config: {cfg_data['key']}")
+        # Note: OrgConfig is now per-organization and seeded during onboarding
+        # DEFAULT_CONFIG values are available as reference defaults
 
         db.commit()
         print("\nSeeding complete!")

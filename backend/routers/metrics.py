@@ -1,8 +1,10 @@
+from __future__ import annotations
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.database import get_db
+from backend.auth import get_current_org_id
 from backend.models.content import ContentItem
 from backend.models.metrics import ContentMetric, WeeklyReport
 from backend.models.template import ContentTemplate
@@ -14,19 +16,32 @@ router = APIRouter()
 
 
 @router.get("/dashboard", response_model=DashboardResponse)
-def get_dashboard(db: Session = Depends(get_db)):
-    total_content = db.query(ContentItem).count()
-    total_published = db.query(ContentItem).filter(ContentItem.status == "published").count()
+def get_dashboard(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    total_content = db.query(ContentItem).filter(ContentItem.org_id == org_id).count()
+    total_published = (
+        db.query(ContentItem)
+        .filter(ContentItem.org_id == org_id, ContentItem.status == "published")
+        .count()
+    )
 
-    agg = db.query(
-        func.coalesce(func.sum(ContentMetric.impressions), 0),
-        func.coalesce(func.sum(ContentMetric.engagement), 0),
-    ).first()
+    agg = (
+        db.query(
+            func.coalesce(func.sum(ContentMetric.impressions), 0),
+            func.coalesce(func.sum(ContentMetric.engagement), 0),
+        )
+        .join(ContentItem, ContentMetric.content_item_id == ContentItem.id)
+        .filter(ContentItem.org_id == org_id)
+        .first()
+    )
 
     # Top content by engagement
     top = (
         db.query(ContentItem, func.sum(ContentMetric.engagement).label("eng"))
         .join(ContentMetric, ContentMetric.content_item_id == ContentItem.id)
+        .filter(ContentItem.org_id == org_id)
         .group_by(ContentItem.id)
         .order_by(func.sum(ContentMetric.engagement).desc())
         .limit(5)
@@ -41,6 +56,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     by_type = (
         db.query(ContentTemplate.content_type, func.count(ContentItem.id))
         .join(ContentTemplate, ContentTemplate.id == ContentItem.template_id)
+        .filter(ContentItem.org_id == org_id)
         .group_by(ContentTemplate.content_type)
         .all()
     )
@@ -48,6 +64,7 @@ def get_dashboard(db: Session = Depends(get_db)):
     # Content by language
     by_lang = (
         db.query(ContentItem.language, func.count(ContentItem.id))
+        .filter(ContentItem.org_id == org_id)
         .group_by(ContentItem.language)
         .all()
     )
@@ -64,7 +81,19 @@ def get_dashboard(db: Session = Depends(get_db)):
 
 
 @router.post("/import/manual", response_model=MetricResponse)
-def import_metric(data: MetricImportRequest, db: Session = Depends(get_db)):
+def import_metric(
+    data: MetricImportRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    # Verify content ownership
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == data.content_item_id, ContentItem.org_id == org_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Content item not found")
     metric = ContentMetric(**data.model_dump())
     db.add(metric)
     db.commit()
@@ -73,7 +102,11 @@ def import_metric(data: MetricImportRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/import/linkedin")
-def import_linkedin_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+def import_linkedin_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     """Upload LinkedIn analytics CSV and parse metrics."""
     import csv
     import io
@@ -82,10 +115,17 @@ def import_linkedin_csv(file: UploadFile = File(...), db: Session = Depends(get_
     reader = csv.DictReader(io.StringIO(content))
     imported = 0
     for row in reader:
-        # Map LinkedIn CSV columns to our schema
-        # This will need adjustment based on actual LinkedIn export format
+        content_item_id = row.get("content_id", "")
+        # Verify ownership
+        item = (
+            db.query(ContentItem)
+            .filter(ContentItem.id == content_item_id, ContentItem.org_id == org_id)
+            .first()
+        )
+        if not item:
+            continue
         metric = ContentMetric(
-            content_item_id=int(row.get("content_id", 0)),
+            content_item_id=content_item_id,
             channel="linkedin",
             date=date.fromisoformat(row.get("date", str(date.today()))),
             impressions=int(row.get("impressions", 0)),
@@ -100,7 +140,19 @@ def import_linkedin_csv(file: UploadFile = File(...), db: Session = Depends(get_
 
 
 @router.get("/content/{content_id}", response_model=list[MetricResponse])
-def get_content_metrics(content_id: int, db: Session = Depends(get_db)):
+def get_content_metrics(
+    content_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    # Verify content ownership
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Content not found")
     return (
         db.query(ContentMetric)
         .filter(ContentMetric.content_item_id == content_id)
@@ -110,9 +162,14 @@ def get_content_metrics(content_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/reports", response_model=list[WeeklyReportResponse])
-def list_reports(limit: int = 10, db: Session = Depends(get_db)):
+def list_reports(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     return (
         db.query(WeeklyReport)
+        .filter(WeeklyReport.org_id == org_id)
         .order_by(WeeklyReport.week_start.desc())
         .limit(limit)
         .all()
@@ -120,8 +177,12 @@ def list_reports(limit: int = 10, db: Session = Depends(get_db)):
 
 
 @router.post("/reports/generate")
-def generate_weekly_report(week_start: date, db: Session = Depends(get_db)):
+def generate_weekly_report(
+    week_start: date,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     """Trigger AI-powered weekly performance evaluation."""
     from backend.services.metrics_service import generate_report
-    report = generate_report(db=db, week_start=week_start)
+    report = generate_report(db=db, week_start=week_start, org_id=org_id)
     return WeeklyReportResponse.model_validate(report)
