@@ -7,6 +7,7 @@ from backend.models.content import ContentItem, Publication
 from backend.models.metrics import ContentMetric, WeeklyReport
 from backend.models.video import VideoJob
 from backend.models.config import OrgConfig
+from backend.models.resource import OrgResource
 
 __all__ = [
     "Organization",
@@ -21,4 +22,5 @@ __all__ = [
     "WeeklyReport",
     "VideoJob",
     "OrgConfig",
+    "OrgResource",
 ]

@@ -122,3 +122,34 @@ export interface UserProfile {
   avatar_url: string;
   created_at: string;
 }
+
+export interface OrgResource {
+  id: string;
+  org_id: string;
+  resource_type: string;
+  name: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  metadata_json: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ResourceType {
+  type: string;
+  label: string;
+  accepts: string;
+  has_file: boolean;
+}
+
+export interface Publication {
+  id: string;
+  content_item_id: string;
+  channel: string;
+  external_id: string;
+  external_url: string;
+  published_at: string;
+  status: string;
+}

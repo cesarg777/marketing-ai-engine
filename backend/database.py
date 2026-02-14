@@ -40,6 +40,6 @@ def create_tables():
         Organization, UserProfile, Language,
         ResearchWeek, ResearchProblem, ContentTemplate,
         ContentItem, Publication, ContentMetric, WeeklyReport,
-        VideoJob, OrgConfig,
+        VideoJob, OrgConfig, OrgResource,
     )
     Base.metadata.create_all(bind=engine)

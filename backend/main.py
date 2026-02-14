@@ -21,7 +21,7 @@ from tools.config import Config
 from backend.database import create_tables
 from backend.auth import get_current_user
 from backend.security import SecurityHeadersMiddleware, limiter
-from backend.routers import research, templates, content, amplification, metrics, languages, videos, onboarding
+from backend.routers import research, templates, content, amplification, metrics, languages, videos, onboarding, resources
 
 app = FastAPI(
     title="Siete Marketing Engine",
@@ -58,12 +58,18 @@ app.include_router(amplification.router, prefix="/api/amplification", tags=["amp
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
 app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboarding"])
+app.include_router(resources.router, prefix="/api/resources", tags=["resources"])
 
 
 # Serve rendered assets (PNG/PDF) as static files
 renders_dir = Config.TMP_DIR / "renders"
 renders_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/api/renders", StaticFiles(directory=str(renders_dir)), name="renders")
+
+# Serve uploaded brand resources
+uploads_dir = Config.TMP_DIR / "uploads"
+uploads_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 
 @app.on_event("startup")

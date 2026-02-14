@@ -153,6 +153,29 @@ export const getVideoStatus = (id: string) => api.get(`/videos/${id}/status`);
 export const getProviderAvatars = (provider: string) =>
   api.get(`/videos/providers/${provider}/avatars`);
 
+// --- Resources ---
+export const getResources = (resourceType?: string) =>
+  api.get("/resources/", { params: resourceType ? { resource_type: resourceType } : {} });
+
+export const getResourceTypes = () => api.get("/resources/types");
+
+export const uploadResource = (data: FormData) =>
+  api.post("/resources/upload", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const createResourceNoFile = (data: FormData) =>
+  api.post("/resources/", data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const updateResource = (id: string, data: FormData) =>
+  api.put(`/resources/${id}`, data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const deleteResource = (id: string) => api.delete(`/resources/${id}`);
+
 // --- Onboarding ---
 export const checkOnboardingStatus = () => api.get("/onboarding/status");
 

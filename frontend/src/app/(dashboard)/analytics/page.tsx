@@ -1,8 +1,16 @@
 "use client";
-import { useEffect, useState } from "react";
-import { getDashboard } from "@/lib/api";
+import { useEffect, useState, useRef } from "react";
+import { getDashboard, importLinkedInCSV, importMetric } from "@/lib/api";
 import type { DashboardData } from "@/types";
-import { Card, PageHeader, EmptyState } from "@/components/ui";
+import {
+  Card,
+  PageHeader,
+  EmptyState,
+  FormSection,
+  Button,
+  Input,
+  Alert,
+} from "@/components/ui";
 import {
   BarChart3,
   TrendingUp,
@@ -10,14 +18,94 @@ import {
   Send,
   Eye,
   ThumbsUp,
+  Upload,
+  Plus,
 } from "lucide-react";
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Manual metric state
+  const [showManual, setShowManual] = useState(false);
+  const [manualData, setManualData] = useState({
+    content_item_id: "",
+    channel: "linkedin",
+    date: new Date().toISOString().slice(0, 10),
+    impressions: "",
+    reach: "",
+    engagement: "",
+    clicks: "",
+    conversions: "",
+  });
+  const [manualSaving, setManualSaving] = useState(false);
+
+  const loadDashboard = () =>
+    getDashboard().then((r) => setData(r.data)).catch(() => {});
 
   useEffect(() => {
-    getDashboard().then((r) => setData(r.data)).catch(() => {});
+    loadDashboard();
   }, []);
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadMsg("");
+    setUploadError("");
+
+    try {
+      const res = await importLinkedInCSV(file);
+      setUploadMsg(res.data.detail || "CSV imported successfully.");
+      loadDashboard();
+      setTimeout(() => setUploadMsg(""), 5000);
+    } catch {
+      setUploadError("CSV import failed. Check format and file size.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleManualImport = async () => {
+    if (!manualData.content_item_id) return;
+    setManualSaving(true);
+    setUploadError("");
+    try {
+      await importMetric({
+        content_item_id: manualData.content_item_id,
+        channel: manualData.channel,
+        date: manualData.date,
+        impressions: parseInt(manualData.impressions) || 0,
+        reach: parseInt(manualData.reach) || 0,
+        engagement: parseInt(manualData.engagement) || 0,
+        clicks: parseInt(manualData.clicks) || 0,
+        conversions: parseInt(manualData.conversions) || 0,
+      });
+      setUploadMsg("Metric imported.");
+      setShowManual(false);
+      setManualData({
+        content_item_id: "",
+        channel: "linkedin",
+        date: new Date().toISOString().slice(0, 10),
+        impressions: "",
+        reach: "",
+        engagement: "",
+        clicks: "",
+        conversions: "",
+      });
+      loadDashboard();
+      setTimeout(() => setUploadMsg(""), 3000);
+    } catch {
+      setUploadError("Failed to import metric.");
+    } finally {
+      setManualSaving(false);
+    }
+  };
 
   const stats = [
     {
@@ -60,7 +148,139 @@ export default function AnalyticsPage() {
         icon={BarChart3}
         title="Analytics"
         subtitle="Track content performance and engagement"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowManual(!showManual)}
+              icon={<Plus size={13} />}
+            >
+              Manual
+            </Button>
+            <label>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={uploading}
+                icon={<Upload size={13} />}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Import CSV
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleCSVUpload}
+                disabled={uploading}
+              />
+            </label>
+          </div>
+        }
       />
+
+      {/* Alerts */}
+      {uploadMsg && (
+        <Alert variant="success" className="mb-4">
+          {uploadMsg}
+        </Alert>
+      )}
+      {uploadError && (
+        <Alert variant="error" className="mb-4">
+          {uploadError}
+        </Alert>
+      )}
+
+      {/* Manual Metric Import */}
+      {showManual && (
+        <FormSection title="Import Metric Manually" className="mb-6">
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Content Item ID"
+              value={manualData.content_item_id}
+              onChange={(e) =>
+                setManualData({ ...manualData, content_item_id: e.target.value })
+              }
+              placeholder="UUID of the content item"
+            />
+            <Input
+              label="Channel"
+              value={manualData.channel}
+              onChange={(e) =>
+                setManualData({ ...manualData, channel: e.target.value })
+              }
+              placeholder="linkedin, webflow, etc."
+            />
+            <Input
+              label="Date"
+              type="text"
+              value={manualData.date}
+              onChange={(e) =>
+                setManualData({ ...manualData, date: e.target.value })
+              }
+              placeholder="YYYY-MM-DD"
+            />
+            <Input
+              label="Impressions"
+              type="number"
+              value={manualData.impressions}
+              onChange={(e) =>
+                setManualData({ ...manualData, impressions: e.target.value })
+              }
+            />
+            <Input
+              label="Reach"
+              type="number"
+              value={manualData.reach}
+              onChange={(e) =>
+                setManualData({ ...manualData, reach: e.target.value })
+              }
+            />
+            <Input
+              label="Engagement"
+              type="number"
+              value={manualData.engagement}
+              onChange={(e) =>
+                setManualData({ ...manualData, engagement: e.target.value })
+              }
+            />
+            <Input
+              label="Clicks"
+              type="number"
+              value={manualData.clicks}
+              onChange={(e) =>
+                setManualData({ ...manualData, clicks: e.target.value })
+              }
+            />
+            <Input
+              label="Conversions"
+              type="number"
+              value={manualData.conversions}
+              onChange={(e) =>
+                setManualData({ ...manualData, conversions: e.target.value })
+              }
+            />
+          </div>
+          <div className="mt-4 flex gap-2">
+            <Button
+              size="sm"
+              onClick={handleManualImport}
+              loading={manualSaving}
+            >
+              Import
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowManual(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </FormSection>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -153,11 +373,11 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {!hasData && (
+      {!hasData && !showManual && (
         <EmptyState
           icon={BarChart3}
           title="No analytics data yet"
-          description="Generate and publish content to start tracking performance"
+          description="Generate and publish content, then import metrics via CSV or add them manually"
         />
       )}
     </div>

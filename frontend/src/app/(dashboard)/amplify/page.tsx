@@ -1,6 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getAmplificationCandidates, amplifyToBlog } from "@/lib/api";
+import {
+  getAmplificationCandidates,
+  amplifyToBlog,
+  createNewsletter,
+  createLandingPage,
+} from "@/lib/api";
 import {
   Megaphone,
   FileText,
@@ -10,7 +15,7 @@ import {
   Eye,
   Zap,
 } from "lucide-react";
-import { PageHeader, Card, Badge, Button, EmptyState } from "@/components/ui";
+import { PageHeader, Card, Badge, Button, EmptyState, Alert } from "@/components/ui";
 
 interface Candidate {
   content: {
@@ -26,6 +31,9 @@ interface Candidate {
 export default function AmplifyPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [amplifying, setAmplifying] = useState<string | null>(null);
+  const [amplifyAction, setAmplifyAction] = useState<string | null>(null);
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     getAmplificationCandidates()
@@ -35,13 +43,47 @@ export default function AmplifyPage() {
 
   const handleAmplifyBlog = async (contentId: string) => {
     setAmplifying(contentId);
+    setAmplifyAction("blog");
+    setError("");
     try {
       await amplifyToBlog(contentId);
-      alert("Blog post created! Check the Content Library.");
+      setSuccess("Blog post created! Check the Content Library.");
+      setTimeout(() => setSuccess(""), 4000);
     } catch {
-      alert("Amplification failed.");
+      setError("Blog amplification failed.");
     }
     setAmplifying(null);
+    setAmplifyAction(null);
+  };
+
+  const handleNewsletter = async (contentId: string) => {
+    setAmplifying(contentId);
+    setAmplifyAction("newsletter");
+    setError("");
+    try {
+      await createNewsletter([contentId]);
+      setSuccess("Newsletter composed! Check the Content Library.");
+      setTimeout(() => setSuccess(""), 4000);
+    } catch {
+      setError("Newsletter creation failed.");
+    }
+    setAmplifying(null);
+    setAmplifyAction(null);
+  };
+
+  const handleLandingPage = async (contentId: string) => {
+    setAmplifying(contentId);
+    setAmplifyAction("landing");
+    setError("");
+    try {
+      await createLandingPage(contentId);
+      setSuccess("Landing page created! Check the Content Library.");
+      setTimeout(() => setSuccess(""), 4000);
+    } catch {
+      setError("Landing page creation failed.");
+    }
+    setAmplifying(null);
+    setAmplifyAction(null);
   };
 
   return (
@@ -51,6 +93,17 @@ export default function AmplifyPage() {
         title="Amplify"
         subtitle="Expand top-performing content into blogs, newsletters, and landing pages"
       />
+
+      {success && (
+        <Alert variant="success" className="mb-4">
+          {success}
+        </Alert>
+      )}
+      {error && (
+        <Alert variant="error" className="mb-4">
+          {error}
+        </Alert>
+      )}
 
       {candidates.length === 0 ? (
         <EmptyState
@@ -65,6 +118,7 @@ export default function AmplifyPage() {
               c.total_impressions > 0
                 ? ((c.total_engagement / c.total_impressions) * 100).toFixed(1)
                 : "0";
+            const isThisAmplifying = amplifying === c.content.id;
 
             return (
               <Card key={c.content.id} hover padding="md">
@@ -108,7 +162,8 @@ export default function AmplifyPage() {
                     <Button
                       size="sm"
                       onClick={() => handleAmplifyBlog(c.content.id)}
-                      loading={amplifying === c.content.id}
+                      loading={isThisAmplifying && amplifyAction === "blog"}
+                      disabled={isThisAmplifying}
                       icon={<FileText size={13} />}
                     >
                       Blog Post
@@ -116,6 +171,9 @@ export default function AmplifyPage() {
                     <Button
                       variant="secondary"
                       size="sm"
+                      onClick={() => handleNewsletter(c.content.id)}
+                      loading={isThisAmplifying && amplifyAction === "newsletter"}
+                      disabled={isThisAmplifying}
                       icon={<Mail size={13} />}
                     >
                       Newsletter
@@ -123,6 +181,9 @@ export default function AmplifyPage() {
                     <Button
                       variant="secondary"
                       size="sm"
+                      onClick={() => handleLandingPage(c.content.id)}
+                      loading={isThisAmplifying && amplifyAction === "landing"}
+                      disabled={isThisAmplifying}
                       icon={<Globe size={13} />}
                     >
                       Landing Page

@@ -11,6 +11,9 @@ import {
   getContentVersions,
   getLanguages,
   renderContent,
+  publishContent,
+  generateVideo,
+  getVideoStatus,
 } from "@/lib/api";
 import type { ContentItem, ContentTemplate, Language } from "@/types";
 import {
@@ -35,6 +38,9 @@ import {
   Trash2,
   Image,
   Download,
+  Send,
+  Video,
+  ExternalLink,
 } from "lucide-react";
 
 const VISUAL_TYPES = new Set([
@@ -72,6 +78,19 @@ const TONE_OPTIONS = [
   { value: "humorous", label: "Humorous" },
 ];
 
+const PUBLISH_CHANNELS = [
+  { value: "linkedin", label: "LinkedIn (Manual)" },
+  { value: "webflow_blog", label: "Webflow Blog" },
+  { value: "webflow_landing", label: "Webflow Landing" },
+  { value: "newsletter", label: "Newsletter (Email)" },
+];
+
+const VIDEO_PROVIDERS = [
+  { value: "heygen", label: "HeyGen" },
+  { value: "synthesia", label: "Synthesia" },
+  { value: "did", label: "D-ID" },
+];
+
 export default function ContentDetailPage({
   params,
 }: {
@@ -101,6 +120,22 @@ export default function ContentDetailPage({
   const [rendering, setRendering] = useState(false);
   const [assetUrl, setAssetUrl] = useState<string | null>(null);
   const [assetFormat, setAssetFormat] = useState<string | null>(null);
+
+  // Publish state
+  const [showPublish, setShowPublish] = useState(false);
+  const [publishChannel, setPublishChannel] = useState("linkedin");
+  const [publishing, setPublishing] = useState(false);
+
+  // Video state
+  const [showVideo, setShowVideo] = useState(false);
+  const [videoProvider, setVideoProvider] = useState("heygen");
+  const [videoAvatarId, setVideoAvatarId] = useState("");
+  const [generatingVideo, setGeneratingVideo] = useState(false);
+  const [videoJob, setVideoJob] = useState<{
+    id: string;
+    status: string;
+    video_url?: string;
+  } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -254,6 +289,68 @@ export default function ContentDetailPage({
       }
     } finally {
       setRendering(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!publishChannel) return;
+    setPublishing(true);
+    setError("");
+    try {
+      await publishContent(id, publishChannel);
+      setSuccess(`Published to ${publishChannel.replace(/_/g, " ")}!`);
+      setShowPublish(false);
+      setStatus("published");
+      setContent((prev) => (prev ? { ...prev, status: "published" } : prev));
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError("Publishing failed.");
+      }
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleGenerateVideo = async () => {
+    setGeneratingVideo(true);
+    setError("");
+    try {
+      const res = await generateVideo({
+        content_item_id: id,
+        provider: videoProvider,
+        avatar_id: videoAvatarId || undefined,
+        language: content?.language,
+      });
+      const job = res.data;
+      setVideoJob({ id: job.id, status: job.status, video_url: job.video_url });
+      setSuccess("Video job created! Processing...");
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError("Video generation failed.");
+      }
+    } finally {
+      setGeneratingVideo(false);
+    }
+  };
+
+  const handleCheckVideoStatus = async () => {
+    if (!videoJob) return;
+    try {
+      const res = await getVideoStatus(videoJob.id);
+      const job = res.data;
+      setVideoJob({ id: job.id, status: job.status, video_url: job.video_url });
+      if (job.status === "completed") {
+        setSuccess("Video ready!");
+        setTimeout(() => setSuccess(""), 3000);
+      }
+    } catch {
+      setError("Failed to check video status.");
     }
   };
 
@@ -473,7 +570,23 @@ export default function ContentDetailPage({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowTranslate(!showTranslate)}
+            onClick={() => { setShowPublish(!showPublish); setShowVideo(false); setShowTranslate(false); }}
+            icon={<Send size={14} />}
+          >
+            Publish
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setShowVideo(!showVideo); setShowPublish(false); setShowTranslate(false); }}
+            icon={<Video size={14} />}
+          >
+            Video
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setShowTranslate(!showTranslate); setShowPublish(false); setShowVideo(false); }}
             icon={<Languages size={14} />}
           >
             Translate
@@ -491,6 +604,113 @@ export default function ContentDetailPage({
         <Alert variant="success" className="mb-6">
           {success}
         </Alert>
+      )}
+
+      {/* Publish Panel */}
+      {showPublish && (
+        <Card padding="md" className="mb-6">
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <Select
+                label="Publish Channel"
+                value={publishChannel}
+                onChange={(e) => setPublishChannel(e.target.value)}
+                options={PUBLISH_CHANNELS}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={handlePublish}
+              loading={publishing}
+              icon={<Send size={14} />}
+            >
+              Publish
+            </Button>
+          </div>
+          {publishChannel === "linkedin" && (
+            <p className="text-[11px] text-zinc-600 mt-2">
+              LinkedIn requires manual posting. Status will be set to &quot;pending_manual&quot;.
+            </p>
+          )}
+        </Card>
+      )}
+
+      {/* Video Panel */}
+      {showVideo && (
+        <Card padding="md" className="mb-6">
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <Select
+                label="Video Provider"
+                value={videoProvider}
+                onChange={(e) => setVideoProvider(e.target.value)}
+                options={VIDEO_PROVIDERS}
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                label="Avatar ID (optional)"
+                value={videoAvatarId}
+                onChange={(e) => setVideoAvatarId(e.target.value)}
+                placeholder="Leave empty for default"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={handleGenerateVideo}
+              loading={generatingVideo}
+              icon={<Video size={14} />}
+            >
+              Generate
+            </Button>
+          </div>
+
+          {videoJob && (
+            <div className="mt-3 p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      videoJob.status === "completed"
+                        ? "success"
+                        : videoJob.status === "failed"
+                        ? "danger"
+                        : "warning"
+                    }
+                    size="sm"
+                  >
+                    {videoJob.status}
+                  </Badge>
+                  <span className="text-xs text-zinc-500">
+                    Job: {videoJob.id.slice(0, 8)}...
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {videoJob.status !== "completed" && videoJob.status !== "failed" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCheckVideoStatus}
+                    >
+                      Refresh Status
+                    </Button>
+                  )}
+                  {videoJob.video_url && (
+                    <a
+                      href={videoJob.video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
+                    >
+                      <ExternalLink size={12} />
+                      Watch Video
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
       )}
 
       {/* Translate Panel */}
