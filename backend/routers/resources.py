@@ -11,13 +11,9 @@ from backend.auth import get_current_org_id
 from backend.security import validate_uuid
 from backend.models.resource import OrgResource
 from backend.schemas.resource import ResourceResponse, ResourceUpdateRequest
-from tools.config import Config
+from backend.services.storage_service import upload_file, delete_file, BUCKET_UPLOADS
 
 router = APIRouter()
-
-# File storage directory
-UPLOADS_DIR = Config.TMP_DIR / "uploads"
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Upload limits
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -124,13 +120,16 @@ async def upload_resource(
             detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)} MB.",
         )
 
-    # Save file to uploads dir
+    # Upload file via storage service
     ext = Path(file.filename or "file").suffix
     file_id = str(uuid.uuid4())
-    stored_name = f"{org_id}/{resource_type}/{file_id}{ext}"
-    dest = UPLOADS_DIR / stored_name
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(contents)
+    storage_path = f"{org_id}/{resource_type}/{file_id}{ext}"
+    file_url = upload_file(
+        bucket=BUCKET_UPLOADS,
+        path=storage_path,
+        data=contents,
+        content_type=file.content_type or "application/octet-stream",
+    )
 
     # Parse metadata
     import json
@@ -143,7 +142,7 @@ async def upload_resource(
         org_id=org_id,
         resource_type=resource_type,
         name=name.strip(),
-        file_url=f"/api/uploads/{stored_name}",
+        file_url=file_url,
         file_name=file.filename or "",
         file_size=len(contents),
         mime_type=file.content_type or "",
@@ -232,11 +231,17 @@ def delete_resource(
     if not resource:
         raise HTTPException(status_code=404, detail="Resource not found")
 
-    # Delete file if exists
+    # Delete file from storage
     if resource.file_url:
-        file_path = UPLOADS_DIR / resource.file_url.replace("/api/uploads/", "")
-        if file_path.exists():
-            file_path.unlink()
+        # Extract storage path from URL (works for both local and Supabase URLs)
+        if "/api/uploads/" in resource.file_url:
+            storage_path = resource.file_url.split("/api/uploads/", 1)[1]
+        elif f"/{BUCKET_UPLOADS}/" in resource.file_url:
+            storage_path = resource.file_url.split(f"/{BUCKET_UPLOADS}/", 1)[1]
+        else:
+            storage_path = None
+        if storage_path:
+            delete_file(BUCKET_UPLOADS, storage_path)
 
     db.delete(resource)
     db.commit()

@@ -243,7 +243,7 @@ def render_content(
 
     return RenderResponse(
         file_name=result["file_name"],
-        asset_url=f"/api/renders/{result['file_name']}",
+        asset_url=result["asset_url"],
         format=result["format"],
         rendered_html=result["rendered_html"],
     )

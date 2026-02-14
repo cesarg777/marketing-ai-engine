@@ -1,0 +1,15 @@
+frontend/
+.tmp/
+data/
+.venv/
+.git/
+*.pyc
+__pycache__/
+.env
+.env.*
+.env.local
+node_modules/
+*.md
+.claude/
+credentials.json
+token.json

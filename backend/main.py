@@ -61,20 +61,35 @@ app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboardin
 app.include_router(resources.router, prefix="/api/resources", tags=["resources"])
 
 
-# Serve rendered assets (PNG/PDF) as static files
-renders_dir = Config.TMP_DIR / "renders"
-renders_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/api/renders", StaticFiles(directory=str(renders_dir)), name="renders")
+# Serve static files locally (in production, files are in Supabase Storage)
+if not Config.IS_PRODUCTION:
+    renders_dir = Config.TMP_DIR / "renders"
+    renders_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/api/renders", StaticFiles(directory=str(renders_dir)), name="renders")
 
-# Serve uploaded brand resources
-uploads_dir = Config.TMP_DIR / "uploads"
-uploads_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/api/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+    uploads_dir = Config.TMP_DIR / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/api/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+
+
+logger = logging.getLogger(__name__)
 
 
 @app.on_event("startup")
 def on_startup():
     create_tables()
+    # Log seed data status
+    from backend.database import SessionLocal
+    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        lang_count = db.execute(text("SELECT COUNT(*) FROM languages")).scalar()
+        tmpl_count = db.execute(text("SELECT COUNT(*) FROM content_templates")).scalar()
+        logger.info("Seed data: %d languages, %d templates", lang_count, tmpl_count)
+        if lang_count == 0:
+            logger.warning("No seed data found. Run: python scripts/seed_templates.py")
+    finally:
+        db.close()
 
 
 @app.get("/api/health")

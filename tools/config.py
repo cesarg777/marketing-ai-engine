@@ -8,6 +8,10 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 
 class Config:
+    # Environment
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    IS_PRODUCTION = ENVIRONMENT.lower() == "production"
+
     # Project paths
     PROJECT_ROOT = PROJECT_ROOT
     TMP_DIR = PROJECT_ROOT / ".tmp"
@@ -48,7 +52,9 @@ class Config:
     SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 
     # Database
-    DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR}/marketing_engine.db")
+    _raw_db_url = os.getenv("DATABASE_URL", f"sqlite:///{DATA_DIR}/marketing_engine.db")
+    # Railway/Heroku provide postgres:// but SQLAlchemy requires postgresql://
+    DATABASE_URL = _raw_db_url.replace("postgres://", "postgresql://", 1) if _raw_db_url.startswith("postgres://") else _raw_db_url
 
     # Frontend URL (for CORS in production)
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
