@@ -31,6 +31,7 @@ class ContentItem(Base):
     parent = relationship("ContentItem", remote_side=[id], backref="children")
     publications = relationship("Publication", back_populates="content_item", cascade="all, delete-orphan")
     metrics = relationship("ContentMetric", back_populates="content_item", cascade="all, delete-orphan")
+    video_jobs = relationship("VideoJob", back_populates="content_item", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ContentItem [{self.status}] {self.title[:40]}>"

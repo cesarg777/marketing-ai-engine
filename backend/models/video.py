@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from sqlalchemy import Column, String, Integer, Text, JSON, DateTime, ForeignKey, func
+from sqlalchemy.orm import relationship
 from backend.database import Base
 
 
@@ -10,6 +11,7 @@ class VideoJob(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     content_item_id = Column(String(36), ForeignKey("content_items.id"), nullable=False)
+    content_item = relationship("ContentItem", back_populates="video_jobs")
     provider = Column(String(30), nullable=False)
     provider_job_id = Column(String(200), default="")
     status = Column(String(20), default="pending")

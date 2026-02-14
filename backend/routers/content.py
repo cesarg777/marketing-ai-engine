@@ -1,11 +1,12 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from backend.database import get_db
 from backend.auth import get_current_org_id
 from backend.models.content import ContentItem, Publication
 from backend.models.template import ContentTemplate
-from backend.models.research import ResearchProblem
+from backend.models.research import ResearchProblem, ResearchWeek
 from backend.schemas.content import (
     ContentGenerateRequest, ContentUpdateRequest, TranslateRequest,
     PublishRequest, ContentItemResponse, PublicationResponse,
@@ -66,14 +67,31 @@ def generate_content(
     org_id: str = Depends(get_current_org_id),
 ):
     """Generate content using Claude API based on a problem + template."""
-    template = db.query(ContentTemplate).filter(ContentTemplate.id == data.template_id).first()
+    # Template: allow system (org_id=NULL) or org-owned
+    template = (
+        db.query(ContentTemplate)
+        .filter(
+            ContentTemplate.id == data.template_id,
+            or_(ContentTemplate.org_id == None, ContentTemplate.org_id == org_id),
+        )
+        .first()
+    )
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
     problem = None
     topic = data.custom_topic or ""
     if data.problem_id:
-        problem = db.query(ResearchProblem).filter(ResearchProblem.id == data.problem_id).first()
+        # Problem must belong to a week owned by the same org
+        problem = (
+            db.query(ResearchProblem)
+            .join(ResearchWeek)
+            .filter(
+                ResearchProblem.id == data.problem_id,
+                ResearchWeek.org_id == org_id,
+            )
+            .first()
+        )
         if not problem:
             raise HTTPException(status_code=404, detail="Problem not found")
         topic = problem.title
