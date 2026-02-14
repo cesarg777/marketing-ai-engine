@@ -1,8 +1,11 @@
 from __future__ import annotations
+import logging
 from datetime import date, datetime
 from sqlalchemy.orm import Session
 from backend.models.research import ResearchWeek, ResearchProblem
 from tools.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 def run_research_pipeline(
@@ -29,20 +32,28 @@ def run_research_pipeline(
     try:
         # Step 1: Scrape all sources
         raw_data = _scrape_all_sources(niches, countries)
+        logger.info("Scraped %d raw data points from all sources", len(raw_data))
 
-        # Step 2: Aggregate with Claude
+        # Step 2: Aggregate with Claude per niche/country
+        total_problems = 0
         for niche in niches:
             for country in countries:
                 niche_data = _filter_data(raw_data, niche, country)
                 if not niche_data:
+                    logger.debug("No data for %s/%s, skipping", niche, country)
                     continue
 
+                logger.info("Aggregating %d data points for %s/%s", len(niche_data), niche, country)
                 from tools.research.aggregate_problems import aggregate
-                problems = aggregate(
-                    raw_data=niche_data,
-                    niche=niche,
-                    country=country,
-                )
+                try:
+                    problems = aggregate(
+                        raw_data=niche_data,
+                        niche=niche,
+                        country=country,
+                    )
+                except Exception:
+                    logger.exception("Aggregation failed for %s/%s", niche, country)
+                    continue
 
                 # Step 3: Store in database
                 for p in problems:
@@ -64,14 +75,17 @@ def run_research_pipeline(
                         raw_data=p.get("raw_data", {}),
                     )
                     db.add(problem)
+                    total_problems += 1
 
         week.status = "completed"
         week.completed_at = datetime.utcnow()
         db.commit()
+        logger.info("Research pipeline completed: %d problems stored", total_problems)
 
     except Exception as e:
         week.status = "failed"
         db.commit()
+        logger.exception("Research pipeline failed: %s", e)
         raise
 
     db.refresh(week)
@@ -82,36 +96,41 @@ def _scrape_all_sources(niches: list[str], countries: list[str]) -> list[dict]:
     """Run all scrapers and collect raw data."""
     all_data = []
 
+    # Google Trends + News (per niche/country)
     for niche in niches:
         for country in countries:
             try:
                 from tools.research.scrape_google_trends import fetch_trends
                 trends = fetch_trends(niche, country)
                 all_data.extend([{"source": "google_trends", "niche": niche, "country": country, **t} for t in trends])
+                logger.info("Google Trends: %d results for %s/%s", len(trends), niche, country)
             except Exception:
-                pass
+                logger.warning("Google Trends scrape failed for %s/%s", niche, country, exc_info=True)
 
             try:
                 from tools.research.scrape_news import fetch_news
                 news = fetch_news(niche, country)
                 all_data.extend([{"source": "news", "niche": niche, "country": country, **n} for n in news])
+                logger.info("News: %d results for %s/%s", len(news), niche, country)
             except Exception:
-                pass
+                logger.warning("News scrape failed for %s/%s", niche, country, exc_info=True)
 
-    # Reddit and LinkedIn are not niche/country-specific
+    # Reddit and LinkedIn (global, niche-based)
     try:
         from tools.research.scrape_reddit import fetch_reddit
         reddit = fetch_reddit(niches)
         all_data.extend([{"source": "reddit", **r} for r in reddit])
+        logger.info("Reddit: %d posts fetched", len(reddit))
     except Exception:
-        pass
+        logger.warning("Reddit scrape failed", exc_info=True)
 
     try:
         from tools.research.scrape_linkedin import fetch_linkedin
         linkedin = fetch_linkedin(niches)
         all_data.extend([{"source": "linkedin", **l} for l in linkedin])
+        logger.info("LinkedIn: %d results fetched", len(linkedin))
     except Exception:
-        pass
+        logger.warning("LinkedIn scrape failed", exc_info=True)
 
     return all_data
 

@@ -70,3 +70,14 @@ def check_video_status(video_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Video job not found")
     return job
+
+
+@router.get("/providers/{provider_name}/avatars")
+def list_avatars(provider_name: str):
+    """List available avatars for a video provider."""
+    from tools.content.video_engine import get_provider
+    try:
+        provider = get_provider(provider_name)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Unknown provider: {provider_name}")
+    return provider.list_avatars()

@@ -1,13 +1,15 @@
 from __future__ import annotations
+import logging
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from backend.database import get_db
+from backend.database import get_db, SessionLocal
 from backend.models.research import ResearchWeek, ResearchProblem
 from backend.schemas.research import (
     ResearchTriggerRequest, ResearchProblemResponse, ResearchWeekResponse,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -73,9 +75,33 @@ def get_problem(problem_id: int, db: Session = Depends(get_db)):
     return problem
 
 
+def _run_research_background(week_start: date, niches: list[str], countries: list[str]):
+    """Background task: run the research pipeline with its own DB session."""
+    from backend.services.research_service import run_research_pipeline
+
+    db = SessionLocal()
+    try:
+        logger.info("Starting research pipeline for week %s", week_start)
+        week = run_research_pipeline(
+            db=db,
+            week_start=week_start,
+            niches=niches,
+            countries=countries,
+        )
+        logger.info("Research pipeline completed: %d problems found", len(week.problems))
+    except Exception:
+        logger.exception("Research pipeline failed for week %s", week_start)
+    finally:
+        db.close()
+
+
 @router.post("/trigger")
-def trigger_research(data: ResearchTriggerRequest, db: Session = Depends(get_db)):
-    """Trigger a new weekly research run. Returns a job reference."""
+def trigger_research(
+    data: ResearchTriggerRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Trigger a new weekly research run. Runs asynchronously in background."""
     from tools.config import Config
 
     week_start = data.week_start or date.today()
@@ -92,13 +118,13 @@ def trigger_research(data: ResearchTriggerRequest, db: Session = Depends(get_db)
         db.commit()
         db.refresh(existing)
 
-    # TODO: Launch async research pipeline via background task
-    # For now, return the week record for manual triggering
+    background_tasks.add_task(_run_research_background, week_start, niches, countries)
+
     return {
         "week_id": existing.id,
         "week_start": str(week_start),
         "niches": niches,
         "countries": countries,
         "status": "queued",
-        "message": "Research pipeline queued. Use GET /api/research/weeks/{week_id} to check status.",
+        "message": "Research pipeline started. Use GET /api/research/weeks/{week_id} to check status.",
     }
