@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { setupOrganization } from "@/lib/api";
+import { Input, Button, Alert } from "@/components/ui";
+import { Building2, ArrowRight } from "lucide-react";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -40,58 +42,71 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="w-full max-w-md space-y-6 rounded-xl bg-gray-800 p-8">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-white">Set up your organization</h1>
-        <p className="mt-2 text-sm text-gray-400">
-          Create your workspace to start generating content.
+    <>
+      {/* Step indicator */}
+      <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center justify-center w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-semibold">
+          1
+        </div>
+        <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+        <div className="flex items-center justify-center w-7 h-7 rounded-full border border-[var(--border-subtle)] text-zinc-600 text-xs">
+          2
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[var(--accent-muted)] mb-4">
+          <Building2 size={20} className="text-indigo-400" strokeWidth={1.8} />
+        </div>
+        <h2 className="text-lg font-semibold text-white tracking-tight">
+          Set up your workspace
+        </h2>
+        <p className="text-sm text-zinc-500 mt-1">
+          Almost there! Create your organization to start generating content.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-300">
-            Organization name
-          </label>
-          <input
-            type="text"
-            value={orgName}
-            onChange={(e) => handleSlugify(e.target.value)}
-            placeholder="My Company"
-            className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none"
-            required
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error && <Alert variant="error">{error}</Alert>}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-300">
-            URL slug
-          </label>
-          <input
-            type="text"
-            value={orgSlug}
-            onChange={(e) => setOrgSlug(e.target.value)}
-            placeholder="my-company"
-            className="mt-1 w-full rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none"
-            required
-          />
-          <p className="mt-1 text-xs text-gray-500">
-            Used in URLs. Only lowercase letters, numbers, and hyphens.
-          </p>
-        </div>
+        <Input
+          label="Organization name"
+          type="text"
+          value={orgName}
+          onChange={(e) => handleSlugify(e.target.value)}
+          placeholder="My Company"
+          required
+        />
 
-        {error && (
-          <p className="text-sm text-red-400">{error}</p>
+        <Input
+          label="URL slug"
+          type="text"
+          value={orgSlug}
+          onChange={(e) => setOrgSlug(e.target.value)}
+          placeholder="my-company"
+          required
+          helpText="Lowercase letters, numbers, and hyphens only"
+        />
+
+        {orgSlug && (
+          <div className="text-xs text-zinc-600 bg-zinc-900/50 border border-[var(--border-subtle)] rounded-lg px-3 py-2">
+            Your workspace URL:{" "}
+            <span className="text-zinc-400">
+              siete.app/<span className="text-indigo-400">{orgSlug}</span>
+            </span>
+          </div>
         )}
 
-        <button
+        <Button
           type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-indigo-600 py-2 text-white font-medium hover:bg-indigo-500 disabled:opacity-50"
+          loading={loading}
+          icon={<ArrowRight size={16} />}
+          className="w-full"
+          size="lg"
         >
-          {loading ? "Creating..." : "Create organization"}
-        </button>
+          Create Organization
+        </Button>
       </form>
-    </div>
+    </>
   );
 }

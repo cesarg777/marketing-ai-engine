@@ -6,6 +6,7 @@ import {
   triggerResearch,
 } from "@/lib/api";
 import type { ResearchWeek, ResearchProblem } from "@/types";
+import { Card, Badge, PageHeader, Button, Spinner, EmptyState } from "@/components/ui";
 import { Search, Play, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import Link from "next/link";
 
@@ -57,44 +58,39 @@ export default function ResearchPage() {
 
   const trendIcon = (dir: string) => {
     if (dir === "rising")
-      return <TrendingUp size={14} className="text-green-400" />;
+      return <TrendingUp size={14} className="text-emerald-400" />;
     if (dir === "declining")
       return <TrendingDown size={14} className="text-red-400" />;
-    return <Minus size={14} className="text-gray-500" />;
+    return <Minus size={14} className="text-zinc-600" />;
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Search size={24} className="text-indigo-400" />
-            Research Hub
-          </h1>
-          <p className="text-gray-400 mt-1">
-            B2B pain points discovered by AI, updated weekly
-          </p>
-        </div>
-        <button
-          onClick={handleTrigger}
-          disabled={triggering}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <Play size={16} />
-          {triggering ? "Queuing..." : "Run Research"}
-        </button>
-      </div>
+      <PageHeader
+        icon={Search}
+        title="Research Hub"
+        subtitle="B2B pain points discovered by AI, updated weekly"
+        actions={
+          <Button
+            onClick={handleTrigger}
+            loading={triggering}
+            icon={<Play size={14} />}
+          >
+            Run Research
+          </Button>
+        }
+      />
 
       {/* Niche Filter */}
-      <div className="flex gap-2 mb-6 flex-wrap">
+      <div className="flex gap-1.5 mb-6 flex-wrap">
         {NICHES.map((niche) => (
           <button
             key={niche}
             onClick={() => setSelectedNiche(niche)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all duration-200 ${
               selectedNiche === niche
-                ? "bg-indigo-500 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white"
+                ? "bg-indigo-600 text-white shadow-[var(--shadow-glow)]"
+                : "bg-zinc-800/60 text-zinc-500 border border-[var(--border-subtle)] hover:text-zinc-300 hover:border-[var(--border-hover)]"
             }`}
           >
             {niche}
@@ -102,68 +98,59 @@ export default function ResearchPage() {
         ))}
       </div>
 
-      {/* Problems Table */}
+      {/* Problems List */}
       {loading ? (
-        <div className="text-gray-500 text-center py-12">
-          Loading research data...
-        </div>
+        <Spinner className="py-16" />
       ) : problems.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
-          <Search size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">No research data yet</p>
-          <p className="text-sm mt-1">
-            Click &ldquo;Run Research&rdquo; to discover trending B2B problems
-          </p>
-        </div>
+        <EmptyState
+          icon={Search}
+          title="No research data yet"
+          description='Click "Run Research" to discover trending B2B problems'
+        />
       ) : (
         <div className="space-y-3">
           {problems.map((p) => (
-            <div
-              key={p.id}
-              className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5 hover:border-gray-600/50 transition-colors"
-            >
+            <Card key={p.id} hover padding="md">
               <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-sm font-semibold text-white">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <h3 className="text-sm font-semibold text-zinc-200 truncate">
                       {p.title}
                     </h3>
                     {trendIcon(p.trending_direction)}
                   </div>
-                  <p className="text-xs text-gray-400 mb-3">{p.description}</p>
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span className="capitalize bg-gray-700/50 px-2 py-0.5 rounded">
+                  <p className="text-xs text-zinc-500 mb-3 line-clamp-2">
+                    {p.description}
+                  </p>
+                  <div className="flex items-center gap-3 text-xs text-zinc-600">
+                    <Badge variant="default" size="sm">
                       {p.primary_niche}
-                    </span>
+                    </Badge>
                     <span>{p.country}</span>
                     <span>{p.source_count} sources</span>
-                    <span>
-                      Keywords:{" "}
+                    <span className="hidden sm:inline text-zinc-700">
                       {p.keywords.slice(0, 3).join(", ")}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 ml-4">
-                  <span
-                    className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                <div className="flex items-center gap-3 ml-4 shrink-0">
+                  <Badge
+                    variant={
                       p.severity >= 8
-                        ? "bg-red-500/10 text-red-400"
+                        ? "danger"
                         : p.severity >= 5
-                          ? "bg-amber-500/10 text-amber-400"
-                          : "bg-green-500/10 text-green-400"
-                    }`}
+                          ? "warning"
+                          : "success"
+                    }
                   >
                     {p.severity}/10
-                  </span>
-                  <Link
-                    href={`/generate?problem=${p.id}`}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg font-medium transition-colors"
-                  >
-                    Generate
+                  </Badge>
+                  <Link href={`/generate?problem=${p.id}`}>
+                    <Button size="sm">Generate</Button>
                   </Link>
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

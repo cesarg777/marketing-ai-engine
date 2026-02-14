@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2 } from "lucide-react";
+import { Input, Button, Alert } from "@/components/ui";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -39,87 +39,78 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="w-full max-w-sm">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-white tracking-tight">
-          Siete<span className="text-indigo-400">Engine</span>
+    <>
+      {/* Brand mark — visible on mobile */}
+      <div className="mb-10 lg:hidden">
+        <h1 className="text-2xl font-bold tracking-tight">
+          <span className="text-white">Siete</span>
+          <span className="text-indigo-400">Engine</span>
         </h1>
-        <p className="text-sm text-gray-500 mt-2">
+      </div>
+
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold text-white tracking-tight">
           Create your account
+        </h2>
+        <p className="text-sm text-zinc-500 mt-1">
+          Get started with AI-powered content marketing
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5">
-            {error}
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error && <Alert variant="error">{error}</Alert>}
 
-        <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1.5">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            placeholder="you@company.com"
-          />
-        </div>
+        <Input
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          placeholder="you@company.com"
+          autoComplete="email"
+        />
 
-        <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1.5">
-            Password
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            placeholder="Min 6 characters"
-          />
-        </div>
+        <Input
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          placeholder="Min 6 characters"
+          autoComplete="new-password"
+        />
 
-        <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1.5">
-            Confirm Password
-          </label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            placeholder="Repeat password"
-          />
-        </div>
+        <Input
+          label="Confirm Password"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+          placeholder="Repeat your password"
+          autoComplete="new-password"
+        />
 
-        <button
+        <Button
           type="submit"
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg py-2.5 text-sm font-medium transition-colors"
+          loading={loading}
+          className="w-full"
+          size="lg"
         >
-          {loading ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            "Create Account"
-          )}
-        </button>
+          Create Account
+        </Button>
       </form>
 
-      <p className="text-center text-xs text-gray-500 mt-6">
-        Already have an account?{" "}
-        <Link
-          href="/login"
-          className="text-indigo-400 hover:text-indigo-300"
-        >
-          Sign in
-        </Link>
-      </p>
-    </div>
+      <div className="mt-8 pt-6 border-t border-[var(--border-subtle)]">
+        <p className="text-center text-xs text-zinc-500">
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            Sign in
+          </Link>
+        </p>
+      </div>
+    </>
   );
 }

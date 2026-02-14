@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import uuid
-from sqlalchemy import Column, String, Text, Boolean, JSON, DateTime, ForeignKey, func
+from sqlalchemy import Column, String, Text, Boolean, JSON, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 from backend.database import Base
 
 
 class ContentTemplate(Base):
     __tablename__ = "content_templates"
+    __table_args__ = (
+        UniqueConstraint("slug", "org_id", name="uq_template_slug_org"),
+    )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     org_id = Column(String(36), ForeignKey("organizations.id"), nullable=True)  # NULL = system template
     name = Column(String(100), nullable=False)
-    slug = Column(String(100), unique=True, nullable=False)
+    slug = Column(String(100), nullable=False)
     content_type = Column(String(50), nullable=False)
     description = Column(Text, default="")
     structure = Column(JSON, nullable=False)

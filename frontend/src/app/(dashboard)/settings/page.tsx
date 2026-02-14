@@ -2,7 +2,15 @@
 import { useEffect, useState } from "react";
 import { getLanguages, createLanguage, updateLanguage } from "@/lib/api";
 import type { Language } from "@/types";
-import { Settings, Globe, Plus } from "lucide-react";
+import { Settings, Plus, Video, X } from "lucide-react";
+import {
+  PageHeader,
+  FormSection,
+  Input,
+  Button,
+  Toggle,
+  Badge,
+} from "@/components/ui";
 
 export default function SettingsPage() {
   const [languages, setLanguages] = useState<Language[]>([]);
@@ -36,142 +44,146 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Settings size={24} className="text-indigo-400" />
-          Settings
-        </h1>
-        <p className="text-gray-400 mt-1">
-          Configure languages, video providers, and brand settings
-        </p>
-      </div>
+      <PageHeader
+        icon={Settings}
+        title="Settings"
+        subtitle="Configure languages, video providers, and brand settings"
+      />
 
       {/* Languages Section */}
-      <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Globe size={18} className="text-indigo-400" />
-            Languages
-          </h2>
+      <FormSection
+        title="Languages"
+        actions={
           <button
             onClick={() => setShowAddLang(!showAddLang)}
-            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
+            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
           >
-            <Plus size={14} />
-            Add Language
+            {showAddLang ? (
+              <>
+                <X size={14} />
+                Cancel
+              </>
+            ) : (
+              <>
+                <Plus size={14} />
+                Add Language
+              </>
+            )}
           </button>
-        </div>
-
+        }
+        className="mb-6"
+      >
         {showAddLang && (
-          <div className="bg-gray-900 rounded-lg p-4 mb-4 grid grid-cols-4 gap-3">
-            <input
-              placeholder="Code (e.g. fr)"
+          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4 grid grid-cols-[80px_1fr_1fr_auto] gap-3 items-end">
+            <Input
+              label="Code"
+              placeholder="fr"
               value={newLang.code}
               onChange={(e) =>
                 setNewLang({ ...newLang, code: e.target.value })
               }
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-200"
             />
-            <input
-              placeholder="Name (e.g. French)"
+            <Input
+              label="Name"
+              placeholder="French"
               value={newLang.name}
               onChange={(e) =>
                 setNewLang({ ...newLang, name: e.target.value })
               }
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-200"
             />
-            <input
-              placeholder="Native (e.g. Fran\u00e7ais)"
+            <Input
+              label="Native Name"
+              placeholder="Fran&ccedil;ais"
               value={newLang.native_name}
               onChange={(e) =>
                 setNewLang({ ...newLang, native_name: e.target.value })
               }
-              className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-200"
             />
-            <button
-              onClick={handleAddLanguage}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white rounded text-sm font-medium transition-colors"
-            >
+            <Button size="sm" onClick={handleAddLanguage}>
               Add
-            </button>
+            </Button>
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {languages.map((lang) => (
             <div
               key={lang.id}
-              className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg"
+              className="flex items-center justify-between p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg transition-colors hover:border-[var(--border-hover)]"
             >
               <div className="flex items-center gap-3">
-                <span className="text-lg">{lang.flag_emoji}</span>
-                <div>
-                  <span className="text-sm text-white">{lang.name}</span>
-                  <span className="text-xs text-gray-500 ml-2">
+                <span className="text-lg leading-none">{lang.flag_emoji}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-200">
+                    {lang.name}
+                  </span>
+                  <span className="text-xs text-zinc-500">
                     ({lang.native_name})
                   </span>
+                  <Badge variant="default" size="sm">
+                    {lang.code}
+                  </Badge>
                 </div>
-                <span className="text-xs text-gray-600 font-mono">
-                  {lang.code}
-                </span>
               </div>
-              <button
-                onClick={() => handleToggleLanguage(lang)}
-                className={`relative w-10 h-5 rounded-full transition-colors ${
-                  lang.is_active ? "bg-indigo-600" : "bg-gray-700"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                    lang.is_active ? "translate-x-5" : ""
-                  }`}
-                />
-              </button>
+              <Toggle
+                checked={lang.is_active}
+                onChange={() => handleToggleLanguage(lang)}
+              />
             </div>
           ))}
         </div>
-      </div>
+      </FormSection>
 
       {/* Video Provider Section */}
-      <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">
-          AI Video Provider
-        </h2>
-        <div className="space-y-2">
+      <FormSection title="AI Video Provider">
+        <div className="space-y-1.5">
           {[
             {
               id: "heygen",
               name: "HeyGen",
               desc: "175+ languages, lip-sync, best for multilingual",
+              isDefault: true,
             },
             {
               id: "synthesia",
               name: "Synthesia",
               desc: "Enterprise-grade, SOC 2 compliance",
+              isDefault: false,
             },
             {
               id: "did",
               name: "D-ID",
               desc: "Conversational AI, real-time interactions",
+              isDefault: false,
             },
           ].map((provider) => (
             <div
               key={provider.id}
-              className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg"
+              className="flex items-center justify-between p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg"
             >
-              <div>
-                <span className="text-sm text-white">{provider.name}</span>
-                <span className="text-xs text-gray-500 ml-2">
-                  {provider.desc}
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                  <Video size={14} className="text-zinc-500" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-200">
+                      {provider.name}
+                    </span>
+                    {provider.isDefault && (
+                      <Badge variant="info" size="sm">
+                        Default
+                      </Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-zinc-500">{provider.desc}</span>
+                </div>
               </div>
-              <span className="text-xs text-gray-600">
-                Configure in .env
-              </span>
+              <span className="text-[11px] text-zinc-600">Configure in .env</span>
             </div>
           ))}
         </div>
-      </div>
+      </FormSection>
     </div>
   );
 }

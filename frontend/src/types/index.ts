@@ -37,6 +37,7 @@ export interface ResearchProblem {
 
 export interface ContentTemplate {
   id: string;
+  org_id: string | null;
   name: string;
   slug: string;
   content_type: string;

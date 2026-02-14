@@ -13,15 +13,96 @@ import type {
   Language,
   ContentItem,
 } from "@/types";
-import { Sparkles, Loader2 } from "lucide-react";
+import {
+  Sparkles,
+  Check,
+  ChevronRight,
+  FileText,
+  RotateCcw,
+} from "lucide-react";
+import Link from "next/link";
+import {
+  PageHeader,
+  FormSection,
+  Select,
+  Input,
+  Textarea,
+  Button,
+  Alert,
+  Badge,
+  Spinner,
+  Card,
+} from "@/components/ui";
 
 export default function GeneratePageWrapper() {
   return (
-    <Suspense fallback={<div className="text-gray-500">Loading...</div>}>
+    <Suspense fallback={<Spinner className="py-20" />}>
       <GeneratePage />
     </Suspense>
   );
 }
+
+const STEPS = ["Topic", "Template", "Configure"];
+
+function StepIndicator({ current }: { current: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-8">
+      {STEPS.map((label, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <div key={label} className="flex items-center gap-2">
+            {i > 0 && (
+              <ChevronRight
+                size={14}
+                className={done ? "text-indigo-400/60" : "text-zinc-700"}
+              />
+            )}
+            <div className="flex items-center gap-2">
+              <span
+                className={`
+                  w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold
+                  transition-all duration-300
+                  ${
+                    done
+                      ? "bg-indigo-500/20 text-indigo-400"
+                      : active
+                        ? "bg-indigo-600 text-white shadow-[var(--shadow-glow)]"
+                        : "bg-zinc-800/80 text-zinc-600 border border-[var(--border-subtle)]"
+                  }
+                `}
+              >
+                {done ? <Check size={12} strokeWidth={3} /> : i + 1}
+              </span>
+              <span
+                className={`text-xs font-medium transition-colors ${
+                  active
+                    ? "text-zinc-200"
+                    : done
+                      ? "text-zinc-400"
+                      : "text-zinc-600"
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const TYPE_ICONS: Record<string, string> = {
+  carousel: "slides",
+  meet_the_team: "team",
+  case_study: "case",
+  meme: "meme",
+  avatar_video: "video",
+  linkedin_post: "linkedin",
+  blog_post: "blog",
+  newsletter: "mail",
+};
 
 function GeneratePage() {
   const searchParams = useSearchParams();
@@ -82,185 +163,214 @@ function GeneratePage() {
     setGenerating(false);
   };
 
+  // Determine active step
+  const activeStep =
+    selectedProblem || customTopic
+      ? selectedTemplate
+        ? 2
+        : 1
+      : 0;
+
   return (
     <div className="max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Sparkles size={24} className="text-indigo-400" />
-          Generate Content
-        </h1>
-        <p className="text-gray-400 mt-1">
-          Select a topic and template to generate AI content
-        </p>
-      </div>
+      <PageHeader
+        icon={Sparkles}
+        title="Generate Content"
+        subtitle="Select a topic and template to generate AI content"
+      />
+
+      <StepIndicator current={activeStep} />
 
       <div className="space-y-6">
         {/* Step 1: Topic */}
-        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-3">
-            1. Choose Topic
-          </h2>
-          <select
+        <FormSection title="1 &middot; Choose Topic">
+          <Select
+            label="Research Problem"
             value={selectedProblem}
             onChange={(e) => {
               setSelectedProblem(e.target.value);
               if (e.target.value) setCustomTopic("");
             }}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-200 mb-3"
-          >
-            <option value="">Select from research...</option>
-            {problems.map((p) => (
-              <option key={p.id} value={p.id}>
-                [{p.primary_niche}] {p.title} (severity: {p.severity})
-              </option>
-            ))}
-          </select>
-          <div className="text-xs text-gray-500 mb-2">
-            Or enter a custom topic:
+            placeholder="Select from research..."
+            options={problems.map((p) => ({
+              value: p.id,
+              label: `[${p.primary_niche}] ${p.title} (severity: ${p.severity})`,
+            }))}
+          />
+
+          <div className="relative flex items-center gap-3 py-1">
+            <div className="flex-1 h-px bg-[var(--border-subtle)]" />
+            <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-medium">
+              or
+            </span>
+            <div className="flex-1 h-px bg-[var(--border-subtle)]" />
           </div>
-          <input
-            type="text"
+
+          <Input
+            label="Custom Topic"
             value={customTopic}
             onChange={(e) => {
               setCustomTopic(e.target.value);
               if (e.target.value) setSelectedProblem("");
             }}
             placeholder="e.g., How to reduce B2B churn in SaaS"
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-200"
           />
-        </div>
+        </FormSection>
 
         {/* Step 2: Template */}
-        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-3">
-            2. Choose Template
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {templates.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setSelectedTemplate(String(t.id))}
-                className={`p-3 rounded-lg text-left text-xs border transition-colors ${
-                  selectedTemplate === String(t.id)
-                    ? "border-indigo-500 bg-indigo-500/10"
-                    : "border-gray-700 bg-gray-900 hover:border-gray-600"
-                }`}
-              >
-                <div className="font-medium text-white">{t.name}</div>
-                <div className="text-gray-500 mt-0.5 capitalize">
-                  {t.content_type.replace(/_/g, " ")}
-                </div>
-              </button>
-            ))}
+        <FormSection title="2 &middot; Choose Template">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            {templates.map((t) => {
+              const isSelected = selectedTemplate === String(t.id);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setSelectedTemplate(String(t.id))}
+                  className={`
+                    relative p-3.5 rounded-lg text-left transition-all duration-200 group
+                    border
+                    ${
+                      isSelected
+                        ? "border-indigo-500/60 bg-indigo-500/8 shadow-[var(--shadow-glow)]"
+                        : "border-[var(--border-subtle)] bg-[var(--surface-input)] hover:border-[var(--border-hover)] hover:bg-zinc-800/40"
+                    }
+                  `}
+                >
+                  {isSelected && (
+                    <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center">
+                      <Check size={10} strokeWidth={3} className="text-white" />
+                    </span>
+                  )}
+                  <div className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium mb-1.5">
+                    {TYPE_ICONS[t.content_type] || t.content_type.replace(/_/g, " ")}
+                  </div>
+                  <div
+                    className={`text-sm font-medium transition-colors ${
+                      isSelected ? "text-indigo-300" : "text-zinc-300 group-hover:text-zinc-200"
+                    }`}
+                  >
+                    {t.name}
+                  </div>
+                  <div className="text-[11px] text-zinc-600 mt-0.5 capitalize">
+                    {t.content_type.replace(/_/g, " ")}
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        </div>
+        </FormSection>
 
         {/* Step 3: Options */}
-        <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-3">
-            3. Configure
-          </h2>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block">
-                Language
-              </label>
-              <select
-                value={selectedLanguage}
-                onChange={(e) => setSelectedLanguage(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
-              >
-                {languages.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.flag_emoji} {l.native_name} ({l.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block">Tone</label>
-              <select
-                value={tone}
-                onChange={(e) => setTone(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
-              >
-                <option value="professional">Professional</option>
-                <option value="conversational">Conversational</option>
-                <option value="thought_leadership">Thought Leadership</option>
-                <option value="humorous">Humorous</option>
-                <option value="warm">Warm</option>
-                <option value="editorial">Editorial</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">
-              Additional Instructions (optional)
-            </label>
-            <textarea
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              placeholder="Any specific requirements, keywords to include, or style notes..."
-              rows={2}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200"
+        <FormSection title="3 &middot; Configure">
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Language"
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value)}
+              options={languages.map((l) => ({
+                value: l.code,
+                label: `${l.flag_emoji} ${l.native_name} (${l.code})`,
+              }))}
+            />
+            <Select
+              label="Tone"
+              value={tone}
+              onChange={(e) => setTone(e.target.value)}
+              options={[
+                { value: "professional", label: "Professional" },
+                { value: "conversational", label: "Conversational" },
+                { value: "thought_leadership", label: "Thought Leadership" },
+                { value: "humorous", label: "Humorous" },
+                { value: "warm", label: "Warm" },
+                { value: "editorial", label: "Editorial" },
+              ]}
             />
           </div>
-        </div>
+          <Textarea
+            label="Additional Instructions"
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            placeholder="Any specific requirements, keywords to include, or style notes..."
+            rows={2}
+          />
+        </FormSection>
+
+        {/* Error */}
+        {error && <Alert variant="error">{error}</Alert>}
 
         {/* Generate Button */}
-        {error && (
-          <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
-            {error}
-          </div>
-        )}
-
-        <button
+        <Button
           onClick={handleGenerate}
-          disabled={generating}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors"
+          loading={generating}
+          icon={<Sparkles size={16} />}
+          className="w-full py-3 text-sm font-semibold"
         >
-          {generating ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              Generating with Claude...
-            </>
-          ) : (
-            <>
-              <Sparkles size={16} />
-              Generate Content
-            </>
-          )}
-        </button>
+          {generating ? "Generating with Claude..." : "Generate Content"}
+        </Button>
 
         {/* Result Preview */}
         {result && (
-          <div className="bg-gray-800/50 border border-green-500/30 rounded-xl p-6">
+          <Card padding="lg" className="border-emerald-500/20">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">
-                {result.title}
-              </h2>
-              <span className="text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
-                Generated
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                  <Check size={16} className="text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold text-zinc-200">
+                    {result.title}
+                  </h2>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                    Content generated successfully
+                  </p>
+                </div>
+              </div>
+              <Badge variant="success">Generated</Badge>
             </div>
-            <pre className="text-xs text-gray-300 bg-gray-900 rounded-lg p-4 overflow-auto max-h-96">
-              {JSON.stringify(result.content_data, null, 2)}
-            </pre>
-            <div className="flex gap-3 mt-4">
-              <a
-                href={`/content/${result.id}`}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors"
-              >
-                View & Edit
-              </a>
-              <button
+
+            {/* Structured preview */}
+            <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4 mb-4 max-h-80 overflow-auto">
+              {typeof result.content_data === "object" &&
+              result.content_data !== null ? (
+                <dl className="space-y-3">
+                  {Object.entries(
+                    result.content_data as Record<string, unknown>
+                  ).map(([key, value]) => (
+                    <div key={key}>
+                      <dt className="text-[10px] text-zinc-500 uppercase tracking-wider font-medium mb-0.5">
+                        {key.replace(/_/g, " ")}
+                      </dt>
+                      <dd className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                        {typeof value === "string"
+                          ? value
+                          : JSON.stringify(value, null, 2)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <pre className="text-xs text-zinc-400 whitespace-pre-wrap">
+                  {JSON.stringify(result.content_data, null, 2)}
+                </pre>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link href={`/content/${result.id}`}>
+                <Button size="sm" icon={<FileText size={14} />}>
+                  View & Edit
+                </Button>
+              </Link>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => setResult(null)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-medium transition-colors"
+                icon={<RotateCcw size={14} />}
               >
                 Generate Another
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </div>

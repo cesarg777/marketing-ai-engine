@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { getDashboard, getResearchProblems } from "@/lib/api";
 import type { DashboardData, ResearchProblem } from "@/types";
+import { Card, Badge, PageHeader, Button, EmptyState } from "@/components/ui";
 import {
   FileText,
   Send,
@@ -9,6 +10,10 @@ import {
   ThumbsUp,
   TrendingUp,
   Sparkles,
+  Search,
+  LayoutTemplate,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -28,114 +33,140 @@ export default function Dashboard() {
       label: "Total Content",
       value: dashboard?.total_content ?? 0,
       icon: FileText,
-      color: "text-blue-400",
+      accent: "text-blue-400",
+      bg: "bg-blue-500/10",
     },
     {
       label: "Published",
       value: dashboard?.total_published ?? 0,
       icon: Send,
-      color: "text-green-400",
+      accent: "text-emerald-400",
+      bg: "bg-emerald-500/10",
     },
     {
       label: "Impressions",
       value: dashboard?.total_impressions ?? 0,
       icon: Eye,
-      color: "text-purple-400",
+      accent: "text-violet-400",
+      bg: "bg-violet-500/10",
     },
     {
       label: "Engagement",
       value: dashboard?.total_engagement ?? 0,
       icon: ThumbsUp,
-      color: "text-amber-400",
+      accent: "text-amber-400",
+      bg: "bg-amber-500/10",
+    },
+  ];
+
+  const quickLinks = [
+    {
+      href: "/research",
+      icon: Search,
+      title: "Run Research",
+      desc: "Discover trending B2B problems",
+    },
+    {
+      href: "/templates",
+      icon: LayoutTemplate,
+      title: "Manage Templates",
+      desc: "Add or edit content types",
+    },
+    {
+      href: "/analytics",
+      icon: BarChart3,
+      title: "View Analytics",
+      desc: "Track content performance",
     },
   ];
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-gray-400 mt-1">
-            Overview of your AI marketing engine
-          </p>
-        </div>
-        <Link
-          href="/generate"
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <Sparkles size={16} />
-          Generate Content
-        </Link>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Overview of your AI marketing engine"
+        actions={
+          <Link href="/generate">
+            <Button icon={<Sparkles size={16} />}>Generate Content</Button>
+          </Link>
+        }
+      />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5"
-          >
+          <Card key={stat.label} padding="md">
             <div className="flex items-center gap-3 mb-3">
-              <stat.icon size={20} className={stat.color} />
-              <span className="text-sm text-gray-400">{stat.label}</span>
+              <div className={`rounded-lg p-2 ${stat.bg}`}>
+                <stat.icon size={16} className={stat.accent} strokeWidth={1.8} />
+              </div>
+              <span className="text-xs text-zinc-500 font-medium tracking-wide">
+                {stat.label}
+              </span>
             </div>
-            <div className="text-2xl font-bold text-white">
+            <div className="text-2xl font-bold text-white tracking-tight">
               {stat.value.toLocaleString()}
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Trending Problems */}
-      <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <TrendingUp size={20} className="text-indigo-400" />
-            Trending B2B Problems
-          </h2>
+      <Card padding="lg" className="mb-8">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-lg bg-[var(--accent-muted)] p-1.5">
+              <TrendingUp size={16} className="text-indigo-400" strokeWidth={1.8} />
+            </div>
+            <h2 className="text-sm font-semibold text-white">
+              Trending B2B Problems
+            </h2>
+          </div>
           <Link
             href="/research"
-            className="text-sm text-indigo-400 hover:text-indigo-300"
+            className="text-xs text-zinc-500 hover:text-indigo-400 transition-colors flex items-center gap-1"
           >
             View all
+            <ArrowRight size={12} />
           </Link>
         </div>
         {problems.length === 0 ? (
-          <p className="text-gray-500 text-sm">
+          <p className="text-zinc-600 text-sm py-4">
             No research data yet. Trigger your first research run from the
             Research page.
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {problems.map((p) => (
               <div
                 key={p.id}
-                className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg"
+                className="flex items-center justify-between p-3 bg-zinc-900/40 border border-[var(--border-subtle)] rounded-lg hover:border-[var(--border-hover)] transition-colors"
               >
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-white">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-zinc-200 truncate">
                     {p.title}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-zinc-600 mt-0.5">
                     {p.primary_niche} &middot; {p.country} &middot;{" "}
                     {p.source_count} sources
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
+                <div className="flex items-center gap-3 ml-4 shrink-0">
+                  <Badge
+                    variant={
                       p.severity >= 8
-                        ? "bg-red-500/10 text-red-400"
+                        ? "danger"
                         : p.severity >= 5
-                          ? "bg-amber-500/10 text-amber-400"
-                          : "bg-green-500/10 text-green-400"
-                    }`}
+                          ? "warning"
+                          : "success"
+                    }
+                    size="sm"
                   >
-                    Severity {p.severity}/10
-                  </span>
+                    {p.severity}/10
+                  </Badge>
                   <Link
                     href={`/generate?problem=${p.id}`}
-                    className="text-xs text-indigo-400 hover:text-indigo-300"
+                    className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                   >
                     Generate
                   </Link>
@@ -144,34 +175,31 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          {
-            href: "/research",
-            title: "Run Research",
-            desc: "Discover trending B2B problems",
-          },
-          {
-            href: "/templates",
-            title: "Manage Templates",
-            desc: "Add or edit content types",
-          },
-          {
-            href: "/analytics",
-            title: "View Analytics",
-            desc: "Track content performance",
-          },
-        ].map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="bg-gray-800/30 border border-gray-700/30 rounded-xl p-5 hover:border-indigo-500/30 transition-colors"
-          >
-            <div className="text-sm font-medium text-white">{link.title}</div>
-            <div className="text-xs text-gray-500 mt-1">{link.desc}</div>
+        {quickLinks.map((link) => (
+          <Link key={link.href} href={link.href}>
+            <Card hover padding="md" className="group h-full">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-zinc-800/80 border border-[var(--border-subtle)] p-2 group-hover:border-indigo-500/30 group-hover:bg-[var(--accent-muted)] transition-all duration-200">
+                  <link.icon
+                    size={16}
+                    className="text-zinc-500 group-hover:text-indigo-400 transition-colors duration-200"
+                    strokeWidth={1.8}
+                  />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors">
+                    {link.title}
+                  </div>
+                  <div className="text-xs text-zinc-600 mt-0.5">
+                    {link.desc}
+                  </div>
+                </div>
+              </div>
+            </Card>
           </Link>
         ))}
       </div>

@@ -2,14 +2,15 @@
 import { useEffect, useState } from "react";
 import { getContentItems, deleteContent } from "@/lib/api";
 import type { ContentItem } from "@/types";
-import { Library, Trash2, Globe, Languages } from "lucide-react";
+import { Card, Badge, PageHeader, Button, EmptyState, Select } from "@/components/ui";
+import { Library, Trash2, Globe, Plus } from "lucide-react";
 import Link from "next/link";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-500/10 text-gray-400",
-  review: "bg-amber-500/10 text-amber-400",
-  published: "bg-green-500/10 text-green-400",
-  amplified: "bg-purple-500/10 text-purple-400",
+const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger" | "purple"> = {
+  draft: "default",
+  review: "warning",
+  published: "success",
+  amplified: "purple",
 };
 
 export default function ContentPage() {
@@ -35,84 +36,81 @@ export default function ContentPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Library size={24} className="text-indigo-400" />
-            Content Library
-          </h1>
-          <p className="text-gray-400 mt-1">
-            All generated content in one place
-          </p>
-        </div>
-        <Link
-          href="/generate"
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          + Generate New
-        </Link>
-      </div>
+      <PageHeader
+        icon={Library}
+        title="Content Library"
+        subtitle="All generated content in one place"
+        actions={
+          <Link href="/generate">
+            <Button icon={<Plus size={16} />}>Generate New</Button>
+          </Link>
+        }
+      />
 
       {/* Filters */}
       <div className="flex gap-3 mb-6">
-        <select
-          value={filter.status}
-          onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300"
-        >
-          <option value="">All Statuses</option>
-          <option value="draft">Draft</option>
-          <option value="review">Review</option>
-          <option value="published">Published</option>
-          <option value="amplified">Amplified</option>
-        </select>
-        <select
-          value={filter.language}
-          onChange={(e) => setFilter({ ...filter, language: e.target.value })}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300"
-        >
-          <option value="">All Languages</option>
-          <option value="en">English</option>
-          <option value="es">Spanish</option>
-          <option value="pt">Portuguese</option>
-        </select>
+        <div className="w-44">
+          <Select
+            value={filter.status}
+            onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+            options={[
+              { value: "", label: "All Statuses" },
+              { value: "draft", label: "Draft" },
+              { value: "review", label: "Review" },
+              { value: "published", label: "Published" },
+              { value: "amplified", label: "Amplified" },
+            ]}
+          />
+        </div>
+        <div className="w-44">
+          <Select
+            value={filter.language}
+            onChange={(e) => setFilter({ ...filter, language: e.target.value })}
+            options={[
+              { value: "", label: "All Languages" },
+              { value: "en", label: "English" },
+              { value: "es", label: "Spanish" },
+              { value: "pt", label: "Portuguese" },
+            ]}
+          />
+        </div>
       </div>
 
       {/* Content Grid */}
       {items.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
-          <Library size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">No content yet</p>
-          <p className="text-sm mt-1">Generate your first piece of content</p>
-        </div>
+        <EmptyState
+          icon={Library}
+          title="No content yet"
+          description="Generate your first piece of content"
+          action={
+            <Link href="/generate">
+              <Button size="sm" icon={<Plus size={14} />}>
+                Generate Content
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {items.map((item) => (
-            <div
-              key={item.id}
-              className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5 hover:border-gray-600/50 transition-colors"
-            >
+            <Card key={item.id} hover padding="md">
               <div className="flex items-start justify-between mb-3">
-                <span
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    STATUS_COLORS[item.status] || STATUS_COLORS.draft
-                  }`}
-                >
+                <Badge variant={STATUS_VARIANT[item.status] || "default"}>
                   {item.status}
-                </span>
+                </Badge>
                 <button
                   onClick={() => handleDelete(item.id)}
-                  className="p-1.5 rounded hover:bg-gray-700 text-gray-500 hover:text-red-400 transition-colors"
+                  className="p-1.5 rounded-md text-zinc-600 hover:text-red-400 hover:bg-zinc-800/60 transition-all"
                 >
                   <Trash2 size={14} />
                 </button>
               </div>
               <Link href={`/content/${item.id}`}>
-                <h3 className="text-sm font-semibold text-white mb-2 hover:text-indigo-400 transition-colors line-clamp-2">
+                <h3 className="text-sm font-semibold text-zinc-200 mb-2 hover:text-indigo-400 transition-colors line-clamp-2">
                   {item.title}
                 </h3>
               </Link>
-              <div className="flex items-center gap-3 text-xs text-gray-500">
+              <div className="flex items-center gap-3 text-xs text-zinc-600">
                 <span className="flex items-center gap-1">
                   <Globe size={12} />
                   {item.language.toUpperCase()}
@@ -124,7 +122,7 @@ export default function ContentPage() {
                   {new Date(item.created_at).toLocaleDateString()}
                 </span>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
