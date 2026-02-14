@@ -100,6 +100,9 @@ export const publishContent = (id: string, channel: string) =>
 export const getContentVersions = (id: string) =>
   api.get(`/content/${id}/versions`);
 
+export const renderContent = (id: string) =>
+  api.post(`/content/${id}/render`);
+
 // --- Amplification ---
 export const getAmplificationCandidates = () =>
   api.get("/amplification/candidates");

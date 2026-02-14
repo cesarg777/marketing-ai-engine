@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px;
+    height: 1350px;
+    font-family: 'Montserrat', sans-serif;
+    background: #0A0A0A;
+    color: #FFFFFF;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Header bar */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 48px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #999;
+  }
+  .header .logo {
+    font-size: 15px;
+    font-weight: 800;
+    color: #FFF;
+    letter-spacing: 6px;
+  }
+
+  /* Meet the Team badge */
+  .badge {
+    position: absolute;
+    top: 100px;
+    right: 48px;
+    background: #0066FF;
+    color: #FFF;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Arrow icon */
+  .arrow-icon {
+    position: absolute;
+    top: 170px;
+    left: 48px;
+    width: 64px;
+    height: 64px;
+    border: 3px solid #0066FF;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .arrow-icon::after {
+    content: "→";
+    font-size: 28px;
+    color: #0066FF;
+    font-weight: 700;
+  }
+
+  /* Quote */
+  .quote-section {
+    position: absolute;
+    top: 270px;
+    left: 48px;
+    right: 48px;
+    padding-right: 20px;
+  }
+  .quote-mark {
+    font-size: 80px;
+    color: #0066FF;
+    line-height: 0.8;
+    font-weight: 900;
+    margin-bottom: 16px;
+  }
+  .quote-text {
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #FFF;
+  }
+
+  /* Person section */
+  .person-section {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 420px;
+    display: flex;
+    align-items: flex-end;
+  }
+  .person-photo-bg {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 480px;
+    height: 420px;
+    background: linear-gradient(135deg, #0044AA 0%, #0066FF 100%);
+    opacity: 0.3;
+    border-radius: 20px 0 0 0;
+  }
+  .person-photo {
+    position: absolute;
+    bottom: 0;
+    right: 40px;
+    width: 400px;
+    height: 400px;
+    object-fit: cover;
+    border-radius: 16px 16px 0 0;
+    filter: grayscale(100%);
+    mix-blend-mode: luminosity;
+  }
+  .person-info {
+    position: absolute;
+    bottom: 120px;
+    left: 48px;
+  }
+  .person-name {
+    display: inline-block;
+    background: #0066FF;
+    color: #FFF;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 28px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .person-role {
+    margin-top: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #999;
+    letter-spacing: 1px;
+  }
+
+  /* Footer */
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 48px;
+    background: rgba(0,0,0,0.8);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #666;
+  }
+  .footer .logo {
+    font-weight: 800;
+    color: #FFF;
+    letter-spacing: 6px;
+  }
+
+  {{ css_override | safe }}
+</style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <span>B2B LEAD GENERATION</span>
+    <span class="logo">S I E 7 E</span>
+    <span>WEARESIETE.COM</span>
+  </div>
+
+  <!-- Badge -->
+  <div class="badge">MEET THE TEAM</div>
+
+  <!-- Arrow -->
+  <div class="arrow-icon"></div>
+
+  <!-- Quote -->
+  <div class="quote-section">
+    <div class="quote-mark">"</div>
+    <div class="quote-text">{{ quote }}</div>
+  </div>
+
+  <!-- Person -->
+  <div class="person-section">
+    <div class="person-photo-bg"></div>
+    {% if photo_url %}
+    <img class="person-photo" src="{{ photo_url }}" alt="{{ person_name }}">
+    {% endif %}
+    <div class="person-info">
+      <div class="person-name">{{ person_name }}</div>
+      <div class="person-role">{{ role }}</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>WEARESIETE.COM</span>
+    <span class="logo">S I E 7 E</span>
+  </div>
+</body>
+</html>

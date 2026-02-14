@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px;
+    font-family: 'Montserrat', sans-serif;
+    background: #0A0A0A;
+    color: #FFFFFF;
+  }
+
+  /* Each slide is a page */
+  .slide {
+    width: 1080px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: #0A0A0A;
+  }
+  .slide:last-child {
+    page-break-after: auto;
+  }
+
+  /* Header bar (all slides) */
+  .slide-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 48px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #666;
+  }
+  .slide-header .logo {
+    font-weight: 800;
+    color: #FFF;
+    letter-spacing: 6px;
+    font-size: 13px;
+  }
+
+  /* Footer bar (all slides) */
+  .slide-footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 48px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: #555;
+  }
+
+  /* --- Cover Slide --- */
+  .cover-content {
+    padding: 120px 64px 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+  }
+  .cover-title {
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1.15;
+    max-width: 900px;
+  }
+  .cover-subtitle {
+    margin-top: 32px;
+    font-size: 20px;
+    font-weight: 500;
+    color: #999;
+    max-width: 700px;
+    line-height: 1.5;
+  }
+  .cover-accent-line {
+    width: 80px;
+    height: 5px;
+    background: #0066FF;
+    border-radius: 3px;
+    margin-top: 40px;
+  }
+
+  /* --- Content Slides --- */
+  .content-slide-inner {
+    padding: 120px 64px 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+  }
+  .slide-number {
+    font-size: 72px;
+    font-weight: 900;
+    color: #0066FF;
+    line-height: 1;
+    margin-bottom: 24px;
+  }
+  .slide-headline {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 24px;
+    max-width: 850px;
+  }
+  .slide-body {
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1.6;
+    color: #BBB;
+    max-width: 800px;
+  }
+  .slide-divider {
+    width: 60px;
+    height: 4px;
+    background: #0066FF;
+    border-radius: 2px;
+    margin-top: 32px;
+  }
+
+  /* --- CTA Slide --- */
+  .cta-content {
+    padding: 120px 64px 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex: 1;
+  }
+  .cta-text {
+    font-size: 44px;
+    font-weight: 800;
+    line-height: 1.25;
+    max-width: 800px;
+  }
+  .cta-button {
+    margin-top: 48px;
+    display: inline-block;
+    background: #0066FF;
+    color: #FFF;
+    padding: 20px 48px;
+    border-radius: 12px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .cta-website {
+    margin-top: 32px;
+    font-size: 16px;
+    color: #666;
+    letter-spacing: 2px;
+  }
+
+  {{ css_override | safe }}
+</style>
+</head>
+<body>
+  <!-- Slide 1: Cover -->
+  <div class="slide">
+    <div class="slide-header">
+      <span>B2B LEAD GENERATION</span>
+      <span class="logo">S I E 7 E</span>
+      <span>WEARESIETE.COM</span>
+    </div>
+    <div class="cover-content">
+      <h1 class="cover-title">{{ title }}</h1>
+      {% if social_caption %}
+      <p class="cover-subtitle">{{ social_caption[:120] }}</p>
+      {% endif %}
+      <div class="cover-accent-line"></div>
+    </div>
+    <div class="slide-footer">
+      <span>01 / {{ slides|length + 2 }}</span>
+      <span>SWIPE →</span>
+    </div>
+  </div>
+
+  <!-- Content Slides -->
+  {% for slide in slides %}
+  <div class="slide">
+    <div class="slide-header">
+      <span>B2B LEAD GENERATION</span>
+      <span class="logo">S I E 7 E</span>
+      <span>WEARESIETE.COM</span>
+    </div>
+    <div class="content-slide-inner">
+      <div class="slide-number">{{ "%02d" | format(loop.index) }}</div>
+      <h2 class="slide-headline">{{ slide.headline }}</h2>
+      <p class="slide-body">{{ slide.body }}</p>
+      <div class="slide-divider"></div>
+    </div>
+    <div class="slide-footer">
+      <span>{{ "%02d" | format(loop.index + 1) }} / {{ slides|length + 2 }}</span>
+      <span>SWIPE →</span>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- CTA Slide -->
+  <div class="slide">
+    <div class="slide-header">
+      <span>B2B LEAD GENERATION</span>
+      <span class="logo">S I E 7 E</span>
+      <span>WEARESIETE.COM</span>
+    </div>
+    <div class="cta-content">
+      <p class="cta-text">{{ cta }}</p>
+      <div class="cta-button">WEARESIETE.COM</div>
+      <p class="cta-website">S I E 7 E</p>
+    </div>
+    <div class="slide-footer">
+      <span>{{ "%02d" | format(slides|length + 2) }} / {{ slides|length + 2 }}</span>
+      <span>FIN</span>
+    </div>
+  </div>
+</body>
+</html>

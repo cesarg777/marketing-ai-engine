@@ -14,6 +14,7 @@ logging.basicConfig(
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from tools.config import Config
@@ -57,6 +58,12 @@ app.include_router(amplification.router, prefix="/api/amplification", tags=["amp
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
 app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboarding"])
+
+
+# Serve rendered assets (PNG/PDF) as static files
+renders_dir = Config.TMP_DIR / "renders"
+renders_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/renders", StaticFiles(directory=str(renders_dir)), name="renders")
 
 
 @app.on_event("startup")

@@ -1,5 +1,7 @@
 # Environment and secrets
 .env
+.env.*
+.env.local
 credentials.json
 token.json
 
@@ -17,6 +19,7 @@ env/
 # Node
 node_modules/
 .next/
+*.tsbuildinfo
 
 # Database
 data/*.db

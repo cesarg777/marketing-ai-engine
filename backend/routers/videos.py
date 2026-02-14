@@ -123,7 +123,10 @@ def check_video_status(
 
 
 @router.get("/providers/{provider_name}/avatars")
-def list_avatars(provider_name: str):
+def list_avatars(
+    provider_name: str,
+    org_id: str = Depends(get_current_org_id),
+):
     """List available avatars for a video provider."""
     from tools.content.video_engine import get_provider
     try:

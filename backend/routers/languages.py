@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.database import get_db
+from backend.auth import get_current_org_id
 from backend.models.language import Language
 from backend.schemas.language import LanguageCreate, LanguageUpdate, LanguageResponse
 from backend.security import validate_uuid, safe_update, LANGUAGE_UPDATE_FIELDS
@@ -9,7 +10,11 @@ router = APIRouter()
 
 
 @router.get("/", response_model=list[LanguageResponse])
-def list_languages(active_only: bool = False, db: Session = Depends(get_db)):
+def list_languages(
+    active_only: bool = False,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     query = db.query(Language)
     if active_only:
         query = query.filter(Language.is_active == True)
@@ -17,7 +22,11 @@ def list_languages(active_only: bool = False, db: Session = Depends(get_db)):
 
 
 @router.get("/{language_id}", response_model=LanguageResponse)
-def get_language(language_id: str, db: Session = Depends(get_db)):
+def get_language(
+    language_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     validate_uuid(language_id, "language_id")
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:
@@ -26,7 +35,11 @@ def get_language(language_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=LanguageResponse, status_code=201)
-def create_language(data: LanguageCreate, db: Session = Depends(get_db)):
+def create_language(
+    data: LanguageCreate,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     existing = db.query(Language).filter(Language.code == data.code).first()
     if existing:
         raise HTTPException(status_code=409, detail=f"Language '{data.code}' already exists")
@@ -38,7 +51,12 @@ def create_language(data: LanguageCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{language_id}", response_model=LanguageResponse)
-def update_language(language_id: str, data: LanguageUpdate, db: Session = Depends(get_db)):
+def update_language(
+    language_id: str,
+    data: LanguageUpdate,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     validate_uuid(language_id, "language_id")
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:
@@ -50,7 +68,11 @@ def update_language(language_id: str, data: LanguageUpdate, db: Session = Depend
 
 
 @router.delete("/{language_id}")
-def delete_language(language_id: str, db: Session = Depends(get_db)):
+def delete_language(
+    language_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
     validate_uuid(language_id, "language_id")
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:

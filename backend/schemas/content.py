@@ -52,6 +52,13 @@ class ContentItemResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RenderResponse(BaseModel):
+    file_name: str
+    asset_url: str
+    format: str
+    rendered_html: str
+
+
 class PublicationResponse(BaseModel):
     id: str
     content_item_id: str

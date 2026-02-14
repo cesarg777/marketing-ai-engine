@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1080px;
+    height: 1350px;
+    font-family: 'Montserrat', sans-serif;
+    background: #0A0A0A;
+    color: #FFFFFF;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Gradient background */
+  body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(0,102,255,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 80%, rgba(0,102,255,0.05) 0%, transparent 60%);
+    z-index: 0;
+  }
+
+  /* Header */
+  .header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 48px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #666;
+  }
+  .header .logo {
+    font-weight: 800;
+    color: #FFF;
+    letter-spacing: 6px;
+    font-size: 13px;
+  }
+
+  /* Badge */
+  .badge {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    margin: 20px 48px 0;
+    background: #0066FF;
+    color: #FFF;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Company name */
+  .company-name {
+    position: relative;
+    z-index: 1;
+    padding: 28px 48px 0;
+    font-size: 56px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    line-height: 1.1;
+  }
+
+  /* Glassmorphism card */
+  .glass-card {
+    position: relative;
+    z-index: 1;
+    margin: 36px 48px 0;
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 36px;
+  }
+  .card-section {
+    margin-bottom: 28px;
+  }
+  .card-section:last-child {
+    margin-bottom: 0;
+  }
+  .card-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0066FF;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+  .card-section-text {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: #DDD;
+  }
+  .section-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.1);
+    margin: 24px 0;
+  }
+
+  /* Metrics */
+  .metrics {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 24px;
+    padding: 36px 48px 0;
+  }
+  .metric {
+    flex: 1;
+    background: rgba(0,102,255,0.1);
+    border: 1px solid rgba(0,102,255,0.25);
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+  }
+  .metric-value {
+    font-size: 42px;
+    font-weight: 900;
+    color: #0066FF;
+    line-height: 1.1;
+  }
+  .metric-label {
+    margin-top: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #999;
+    line-height: 1.4;
+  }
+
+  /* Target icon */
+  .target-icon {
+    position: absolute;
+    bottom: 100px;
+    right: 48px;
+    z-index: 1;
+    font-size: 48px;
+    opacity: 0.6;
+  }
+
+  /* Footer */
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 48px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #666;
+  }
+  .footer .logo {
+    font-weight: 800;
+    color: #FFF;
+    letter-spacing: 6px;
+  }
+
+  {{ css_override | safe }}
+</style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <span>B2B LEAD GENERATION</span>
+    <span class="logo">S I E 7 E</span>
+    <span>WEARESIETE.COM</span>
+  </div>
+
+  <!-- Badge -->
+  <div class="badge">CASO DE ÉXITO</div>
+
+  <!-- Company Name -->
+  <h1 class="company-name">{{ client }}</h1>
+
+  <!-- Glass Card -->
+  <div class="glass-card">
+    <div class="card-section">
+      <div class="card-section-title">El Problema</div>
+      <div class="card-section-text">{{ challenge }}</div>
+    </div>
+    <div class="section-divider"></div>
+    <div class="card-section">
+      <div class="card-section-title">La Estrategia de Siete</div>
+      <div class="card-section-text">{{ solution }}</div>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    {% for metric in key_metrics[:2] %}
+    <div class="metric">
+      <div class="metric-value">{{ metric.value }}</div>
+      <div class="metric-label">{{ metric.metric }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Target icon -->
+  <div class="target-icon">🎯</div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>WEARESIETE.COM</span>
+    <span class="logo">S I E 7 E</span>
+  </div>
+</body>
+</html>

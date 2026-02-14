@@ -10,6 +10,7 @@ import {
   translateContent,
   getContentVersions,
   getLanguages,
+  renderContent,
 } from "@/lib/api";
 import type { ContentItem, ContentTemplate, Language } from "@/types";
 import {
@@ -32,7 +33,17 @@ import {
   FileText,
   Eye,
   Trash2,
+  Image,
+  Download,
 } from "lucide-react";
+
+const VISUAL_TYPES = new Set([
+  "carousel",
+  "meet_the_team",
+  "meme",
+  "case_study",
+  "infografia",
+]);
 
 const STATUS_VARIANT: Record<
   string,
@@ -87,6 +98,9 @@ export default function ContentDetailPage({
   const [showTranslate, setShowTranslate] = useState(false);
   const [targetLang, setTargetLang] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [rendering, setRendering] = useState(false);
+  const [assetUrl, setAssetUrl] = useState<string | null>(null);
+  const [assetFormat, setAssetFormat] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -213,6 +227,39 @@ export default function ContentDetailPage({
       setTranslating(false);
     }
   };
+
+  const handleRender = async () => {
+    setRendering(true);
+    setError("");
+    try {
+      const res = await renderContent(id);
+      const data = res.data as {
+        file_name: string;
+        asset_url: string;
+        format: string;
+        rendered_html: string;
+      };
+      setAssetUrl(data.asset_url);
+      setAssetFormat(data.format);
+      setContent((prev) =>
+        prev ? { ...prev, rendered_html: data.rendered_html } : prev
+      );
+      setSuccess("Visual asset rendered successfully.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError("Rendering failed.");
+      }
+    } finally {
+      setRendering(false);
+    }
+  };
+
+  const isVisualType = template
+    ? VISUAL_TYPES.has(template.content_type)
+    : false;
 
   const renderFieldInput = (field: {
     name: string;
@@ -403,7 +450,17 @@ export default function ContentDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {content.rendered_html && (
+          {isVisualType && (
+            <Button
+              size="sm"
+              onClick={handleRender}
+              loading={rendering}
+              icon={<Image size={14} />}
+            >
+              Render Visual
+            </Button>
+          )}
+          {(content.rendered_html || assetUrl) && (
             <Button
               variant="ghost"
               size="sm"
@@ -467,8 +524,41 @@ export default function ContentDetailPage({
         </Card>
       )}
 
-      {/* Preview Mode */}
-      {showPreview && content.rendered_html ? (
+      {/* Rendered Asset Preview */}
+      {assetUrl && (
+        <FormSection title="Rendered Asset" className="mb-6">
+          <div className="space-y-4">
+            {assetFormat === "png" ? (
+              <div className="border border-[var(--border-subtle)] rounded-lg overflow-hidden bg-zinc-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={assetUrl}
+                  alt={content.title}
+                  className="w-full h-auto"
+                />
+              </div>
+            ) : (
+              <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-6 text-center">
+                <FileText size={32} className="mx-auto mb-2 text-zinc-500" />
+                <p className="text-sm text-zinc-400">
+                  PDF carousel generated ({assetFormat?.toUpperCase()})
+                </p>
+              </div>
+            )}
+            <a
+              href={assetUrl}
+              download
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-sm text-zinc-300 hover:border-[var(--border-hover)] transition-colors"
+            >
+              <Download size={14} />
+              Download {assetFormat?.toUpperCase()}
+            </a>
+          </div>
+        </FormSection>
+      )}
+
+      {/* Preview Mode (rendered HTML) */}
+      {showPreview && content.rendered_html && !assetUrl ? (
         <FormSection title="Rendered Preview" className="mb-6">
           <div
             className="prose prose-invert prose-sm max-w-none"

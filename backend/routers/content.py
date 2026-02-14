@@ -9,7 +9,7 @@ from backend.models.template import ContentTemplate
 from backend.models.research import ResearchProblem, ResearchWeek
 from backend.schemas.content import (
     ContentGenerateRequest, ContentUpdateRequest, TranslateRequest,
-    PublishRequest, ContentItemResponse, PublicationResponse,
+    PublishRequest, ContentItemResponse, PublicationResponse, RenderResponse,
 )
 from backend.security import validate_uuid, safe_update, CONTENT_UPDATE_FIELDS, limiter
 
@@ -202,6 +202,51 @@ def publish_content(
     from backend.services.content_service import publish_content_item
     publication = publish_content_item(db=db, item=item, channel=data.channel)
     return publication
+
+
+@router.post("/{content_id}/render", response_model=RenderResponse)
+def render_content(
+    content_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Render content item as a visual asset (PNG/PDF)."""
+    validate_uuid(content_id, "content_id")
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    template = (
+        db.query(ContentTemplate)
+        .filter(
+            ContentTemplate.id == item.template_id,
+            or_(ContentTemplate.org_id == None, ContentTemplate.org_id == org_id),
+        )
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    from tools.content.render_asset import VISUAL_TYPES
+    if template.content_type not in VISUAL_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Template type '{template.content_type}' does not support visual rendering",
+        )
+
+    from backend.services.render_service import render_content_item
+    result = render_content_item(db=db, item=item, template=template)
+
+    return RenderResponse(
+        file_name=result["file_name"],
+        asset_url=f"/api/renders/{result['file_name']}",
+        format=result["format"],
+        rendered_html=result["rendered_html"],
+    )
 
 
 @router.get("/{content_id}/versions", response_model=list[ContentItemResponse])
