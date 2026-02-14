@@ -1,20 +1,23 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.auth import get_current_org_id
 from backend.models.video import VideoJob
 from backend.models.content import ContentItem
+from backend.security import validate_uuid, limiter
 
 router = APIRouter()
 
+VALID_VIDEO_PROVIDERS = {"heygen", "synthesia", "did"}
+
 
 class VideoCreateRequest(BaseModel):
-    content_item_id: str
-    provider: str = "heygen"       # heygen, synthesia, did
-    avatar_id: str = ""
-    language: str = "en"
+    content_item_id: str = Field(..., max_length=36)
+    provider: str = Field(default="heygen", max_length=20)
+    avatar_id: str = Field(default="", max_length=100)
+    language: str = Field(default="en", min_length=2, max_length=10)
 
 
 class VideoResponse(BaseModel):
@@ -53,6 +56,7 @@ def get_video(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(video_id, "video_id")
     job = (
         db.query(VideoJob)
         .join(ContentItem, VideoJob.content_item_id == ContentItem.id)
@@ -65,12 +69,16 @@ def get_video(
 
 
 @router.post("/generate", response_model=VideoResponse)
+@limiter.limit("5/minute")
 def generate_video(
+    request: Request,
     data: VideoCreateRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
     """Generate an avatar video from a content item's script."""
+    if data.provider not in VALID_VIDEO_PROVIDERS:
+        raise HTTPException(status_code=400, detail=f"Invalid provider. Must be one of: {', '.join(VALID_VIDEO_PROVIDERS)}")
     # Verify content ownership
     item = (
         db.query(ContentItem)
@@ -98,6 +106,7 @@ def check_video_status(
     org_id: str = Depends(get_current_org_id),
 ):
     """Check and update the status of a video generation job."""
+    validate_uuid(video_id, "video_id")
     # Verify ownership
     job = (
         db.query(VideoJob)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from datetime import date
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from backend.database import get_db, SessionLocal
 from backend.auth import get_current_org_id
@@ -9,6 +9,7 @@ from backend.models.research import ResearchWeek, ResearchProblem
 from backend.schemas.research import (
     ResearchTriggerRequest, ResearchProblemResponse, ResearchWeekResponse,
 )
+from backend.security import validate_uuid, limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -41,6 +42,7 @@ def get_week(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(week_id, "week_id")
     week = (
         db.query(ResearchWeek)
         .filter(ResearchWeek.id == week_id, ResearchWeek.org_id == org_id)
@@ -92,6 +94,7 @@ def get_problem(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(problem_id, "problem_id")
     problem = (
         db.query(ResearchProblem)
         .join(ResearchWeek, ResearchProblem.week_id == ResearchWeek.id)
@@ -125,7 +128,9 @@ def _run_research_background(week_start: date, niches: list[str], countries: lis
 
 
 @router.post("/trigger")
+@limiter.limit("5/minute")
 def trigger_research(
+    request: Request,
     data: ResearchTriggerRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),

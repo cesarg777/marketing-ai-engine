@@ -11,11 +11,15 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from tools.config import Config
 from backend.database import create_tables
 from backend.auth import get_current_user
+from backend.security import SecurityHeadersMiddleware, limiter
 from backend.routers import research, templates, content, amplification, metrics, languages, videos, onboarding
 
 app = FastAPI(
@@ -23,6 +27,13 @@ app = FastAPI(
     description="AI-powered B2B content marketing engine",
     version="0.1.0",
 )
+
+# Rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Security headers middleware (added before CORS so headers apply to all responses)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS — allow both local dev and production frontend
 cors_origins = ["http://localhost:3000"]
@@ -33,8 +44,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 # Register routers

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.auth import get_current_org_id
@@ -10,6 +10,7 @@ from backend.schemas.content import (
     ContentGenerateRequest, ContentUpdateRequest, TranslateRequest,
     PublishRequest, ContentItemResponse, PublicationResponse,
 )
+from backend.security import validate_uuid, safe_update, CONTENT_UPDATE_FIELDS, limiter
 
 router = APIRouter()
 
@@ -45,6 +46,7 @@ def get_content(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(content_id, "content_id")
     item = (
         db.query(ContentItem)
         .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
@@ -56,7 +58,9 @@ def get_content(
 
 
 @router.post("/generate", response_model=ContentItemResponse)
+@limiter.limit("10/minute")
 def generate_content(
+    request: Request,
     data: ContentGenerateRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -99,6 +103,7 @@ def update_content(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(content_id, "content_id")
     item = (
         db.query(ContentItem)
         .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
@@ -106,8 +111,7 @@ def update_content(
     )
     if not item:
         raise HTTPException(status_code=404, detail="Content not found")
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(item, key, value)
+    safe_update(item, data.model_dump(exclude_unset=True), CONTENT_UPDATE_FIELDS)
     db.commit()
     db.refresh(item)
     return item
@@ -119,6 +123,7 @@ def delete_content(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(content_id, "content_id")
     item = (
         db.query(ContentItem)
         .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
@@ -139,6 +144,7 @@ def translate_content(
     org_id: str = Depends(get_current_org_id),
 ):
     """Translate content to another language, creating a new linked content item."""
+    validate_uuid(content_id, "content_id")
     item = (
         db.query(ContentItem)
         .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
@@ -166,6 +172,7 @@ def publish_content(
     org_id: str = Depends(get_current_org_id),
 ):
     """Publish content to a channel."""
+    validate_uuid(content_id, "content_id")
     item = (
         db.query(ContentItem)
         .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
@@ -186,6 +193,7 @@ def get_content_versions(
     org_id: str = Depends(get_current_org_id),
 ):
     """Get all translations and amplifications of a content item."""
+    validate_uuid(content_id, "content_id")
     item = (
         db.query(ContentItem)
         .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)

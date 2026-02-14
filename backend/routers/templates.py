@@ -6,6 +6,7 @@ from backend.database import get_db
 from backend.auth import get_current_org_id
 from backend.models.template import ContentTemplate
 from backend.schemas.template import TemplateCreate, TemplateUpdate, TemplateResponse
+from backend.security import validate_uuid, safe_update, TEMPLATE_UPDATE_FIELDS
 
 router = APIRouter()
 
@@ -45,6 +46,7 @@ def get_template(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(template_id, "template_id")
     template = (
         db.query(ContentTemplate)
         .filter(
@@ -64,9 +66,12 @@ def create_template(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
-    existing = db.query(ContentTemplate).filter(ContentTemplate.slug == data.slug).first()
+    existing = db.query(ContentTemplate).filter(
+        ContentTemplate.slug == data.slug,
+        ContentTemplate.org_id == org_id,
+    ).first()
     if existing:
-        raise HTTPException(status_code=409, detail=f"Template slug '{data.slug}' already exists")
+        raise HTTPException(status_code=409, detail=f"Template slug '{data.slug}' already exists for your organization")
     template = ContentTemplate(**data.model_dump(), org_id=org_id)
     db.add(template)
     db.commit()
@@ -81,18 +86,15 @@ def update_template(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(template_id, "template_id")
     template = (
         db.query(ContentTemplate)
-        .filter(ContentTemplate.id == template_id)
+        .filter(ContentTemplate.id == template_id, ContentTemplate.org_id == org_id)
         .first()
     )
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
-    # Only allow editing org-owned templates, not system templates
-    if template.org_id is not None and template.org_id != org_id:
-        raise HTTPException(status_code=403, detail="Cannot edit another org's template")
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(template, key, value)
+        raise HTTPException(status_code=404, detail="Template not found or not editable")
+    safe_update(template, data.model_dump(exclude_unset=True), TEMPLATE_UPDATE_FIELDS)
     db.commit()
     db.refresh(template)
     return template
@@ -104,6 +106,7 @@ def delete_template(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(template_id, "template_id")
     template = (
         db.query(ContentTemplate)
         .filter(ContentTemplate.id == template_id, ContentTemplate.org_id == org_id)
@@ -122,6 +125,7 @@ def duplicate_template(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(template_id, "template_id")
     original = (
         db.query(ContentTemplate)
         .filter(

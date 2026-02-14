@@ -1,18 +1,18 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import date, datetime
 
 
 class MetricImportRequest(BaseModel):
-    content_item_id: str
-    channel: str
+    content_item_id: str = Field(..., max_length=36)
+    channel: str = Field(..., min_length=1, max_length=50)
     date: date
-    impressions: int = 0
-    reach: int = 0
-    engagement: int = 0
-    clicks: int = 0
-    conversions: int = 0
-    custom_data: dict = {}
+    impressions: int = Field(default=0, ge=0)
+    reach: int = Field(default=0, ge=0)
+    engagement: int = Field(default=0, ge=0)
+    clicks: int = Field(default=0, ge=0)
+    conversions: int = Field(default=0, ge=0)
+    custom_data: dict = Field(default_factory=dict)
 
 
 class MetricResponse(BaseModel):

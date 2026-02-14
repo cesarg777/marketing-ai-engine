@@ -1,7 +1,10 @@
 from __future__ import annotations
+import logging
 from sqlalchemy.orm import Session
 from backend.models.video import VideoJob
 from backend.models.content import ContentItem
+
+logger = logging.getLogger(__name__)
 
 
 def create_video_job(
@@ -42,9 +45,10 @@ def create_video_job(
         )
         job.provider_job_id = result.get("job_id", "")
         job.status = "processing"
-    except Exception as e:
+    except Exception:
+        logger.exception("Video creation failed for job %s", job.id)
         job.status = "failed"
-        job.error_message = str(e)
+        job.error_message = "Video generation failed. Please try again."
 
     db.commit()
     db.refresh(job)
@@ -70,8 +74,9 @@ def refresh_video_status(db: Session, video_id: str) -> VideoJob | None:
         elif result.get("status") == "failed":
             job.status = "failed"
             job.error_message = result.get("error", "Unknown error")
-    except Exception as e:
-        job.error_message = str(e)
+    except Exception:
+        logger.exception("Video status check failed for job %s", job.id)
+        job.error_message = "Status check failed. Please try again."
 
     db.commit()
     db.refresh(job)

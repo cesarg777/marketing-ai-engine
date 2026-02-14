@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.auth import get_current_user
 from backend.models.organization import Organization
 from backend.models.user import UserProfile
+from backend.security import limiter
 
 router = APIRouter()
 
 
 class OnboardingRequest(BaseModel):
-    org_name: str
-    org_slug: str
+    org_name: str = Field(..., min_length=1, max_length=200)
+    org_slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class OnboardingResponse(BaseModel):
@@ -26,7 +27,9 @@ class OnboardingResponse(BaseModel):
 
 
 @router.post("/setup", response_model=OnboardingResponse)
+@limiter.limit("5/minute")
 def setup_org(
+    request: Request,
     data: OnboardingRequest,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),

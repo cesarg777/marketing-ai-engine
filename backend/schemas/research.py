@@ -1,11 +1,11 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import date, datetime
 
 
 class ResearchTriggerRequest(BaseModel):
-    niches: list[str] | None = None
-    countries: list[str] | None = None
+    niches: list[str] | None = Field(default=None, max_length=20)
+    countries: list[str] | None = Field(default=None, max_length=50)
     week_start: date | None = None
 
 

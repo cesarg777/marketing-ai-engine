@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.language import Language
 from backend.schemas.language import LanguageCreate, LanguageUpdate, LanguageResponse
+from backend.security import validate_uuid, safe_update, LANGUAGE_UPDATE_FIELDS
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ def list_languages(active_only: bool = False, db: Session = Depends(get_db)):
 
 @router.get("/{language_id}", response_model=LanguageResponse)
 def get_language(language_id: str, db: Session = Depends(get_db)):
+    validate_uuid(language_id, "language_id")
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:
         raise HTTPException(status_code=404, detail="Language not found")
@@ -37,11 +39,11 @@ def create_language(data: LanguageCreate, db: Session = Depends(get_db)):
 
 @router.put("/{language_id}", response_model=LanguageResponse)
 def update_language(language_id: str, data: LanguageUpdate, db: Session = Depends(get_db)):
+    validate_uuid(language_id, "language_id")
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:
         raise HTTPException(status_code=404, detail="Language not found")
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(lang, key, value)
+    safe_update(lang, data.model_dump(exclude_unset=True), LANGUAGE_UPDATE_FIELDS)
     db.commit()
     db.refresh(lang)
     return lang
@@ -49,6 +51,7 @@ def update_language(language_id: str, data: LanguageUpdate, db: Session = Depend
 
 @router.delete("/{language_id}")
 def delete_language(language_id: str, db: Session = Depends(get_db)):
+    validate_uuid(language_id, "language_id")
     lang = db.query(Language).filter(Language.id == language_id).first()
     if not lang:
         raise HTTPException(status_code=404, detail="Language not found")

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
@@ -11,7 +12,9 @@ from backend.models.template import ContentTemplate
 from backend.schemas.metrics import (
     MetricImportRequest, MetricResponse, DashboardResponse, WeeklyReportResponse,
 )
+from backend.security import validate_csv_upload, validate_uuid
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -111,11 +114,26 @@ def import_linkedin_csv(
     import csv
     import io
 
-    content = file.file.read().decode("utf-8")
+    # Validate file type
+    validate_csv_upload(file.content_type, 0)  # type check first
+
+    # Read with size limit
+    raw = file.file.read(5 * 1024 * 1024 + 1)  # read up to limit + 1
+    if len(raw) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 5 MB.")
+
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="File is not valid UTF-8 text")
+
     reader = csv.DictReader(io.StringIO(content))
     imported = 0
-    for row in reader:
-        content_item_id = row.get("content_id", "")
+    errors = []
+    for row_num, row in enumerate(reader, start=2):  # row 1 is header
+        content_item_id = row.get("content_id", "").strip()
+        if not content_item_id:
+            continue
         # Verify ownership
         item = (
             db.query(ContentItem)
@@ -124,19 +142,26 @@ def import_linkedin_csv(
         )
         if not item:
             continue
-        metric = ContentMetric(
-            content_item_id=content_item_id,
-            channel="linkedin",
-            date=date.fromisoformat(row.get("date", str(date.today()))),
-            impressions=int(row.get("impressions", 0)),
-            reach=int(row.get("reach", 0)),
-            engagement=int(row.get("reactions", 0)) + int(row.get("comments", 0)),
-            clicks=int(row.get("clicks", 0)),
-        )
-        db.add(metric)
-        imported += 1
+        try:
+            metric = ContentMetric(
+                content_item_id=content_item_id,
+                channel="linkedin",
+                date=date.fromisoformat(row.get("date", str(date.today()))),
+                impressions=int(row.get("impressions", 0) or 0),
+                reach=int(row.get("reach", 0) or 0),
+                engagement=int(row.get("reactions", 0) or 0) + int(row.get("comments", 0) or 0),
+                clicks=int(row.get("clicks", 0) or 0),
+            )
+            db.add(metric)
+            imported += 1
+        except (ValueError, TypeError) as e:
+            errors.append(f"Row {row_num}: {e}")
+            continue
     db.commit()
-    return {"detail": f"Imported {imported} metric records"}
+    result = {"detail": f"Imported {imported} metric records"}
+    if errors:
+        result["warnings"] = errors[:20]  # Cap warning list
+    return result
 
 
 @router.get("/content/{content_id}", response_model=list[MetricResponse])
@@ -145,6 +170,7 @@ def get_content_metrics(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
+    validate_uuid(content_id, "content_id")
     # Verify content ownership
     item = (
         db.query(ContentItem)

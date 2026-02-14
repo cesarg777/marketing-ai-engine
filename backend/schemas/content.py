@@ -1,32 +1,35 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
+
+VALID_CHANNELS = {"linkedin", "webflow_blog", "webflow_landing", "newsletter"}
+VALID_STATUSES = {"draft", "review", "published", "amplified", "archived"}
 
 
 class ContentGenerateRequest(BaseModel):
-    problem_id: str | None = None
-    custom_topic: str | None = None
-    template_id: str
-    language: str = "en"
-    country: str | None = None
-    tone: str = "professional"
-    additional_instructions: str = ""
+    problem_id: str | None = Field(default=None, max_length=36)
+    custom_topic: str | None = Field(default=None, max_length=500)
+    template_id: str = Field(..., max_length=36)
+    language: str = Field(default="en", min_length=2, max_length=10)
+    country: str | None = Field(default=None, max_length=5)
+    tone: str = Field(default="professional", max_length=50)
+    additional_instructions: str = Field(default="", max_length=2000)
 
 
 class ContentUpdateRequest(BaseModel):
-    title: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=500)
     content_data: dict | None = None
-    status: str | None = None
-    tone: str | None = None
+    status: str | None = Field(default=None, max_length=20)
+    tone: str | None = Field(default=None, max_length=50)
 
 
 class TranslateRequest(BaseModel):
-    target_language: str
-    target_country: str | None = None
+    target_language: str = Field(..., min_length=2, max_length=10)
+    target_country: str | None = Field(default=None, max_length=5)
 
 
 class PublishRequest(BaseModel):
-    channel: str  # linkedin, webflow_blog, webflow_landing, newsletter
+    channel: str = Field(..., max_length=30)
 
 
 class ContentItemResponse(BaseModel):
