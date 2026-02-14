@@ -1,12 +1,16 @@
+from backend.models.organization import Organization
+from backend.models.user import UserProfile
 from backend.models.language import Language
 from backend.models.research import ResearchWeek, ResearchProblem
 from backend.models.template import ContentTemplate
 from backend.models.content import ContentItem, Publication
 from backend.models.metrics import ContentMetric, WeeklyReport
 from backend.models.video import VideoJob
-from backend.models.config import SystemConfig
+from backend.models.config import OrgConfig
 
 __all__ = [
+    "Organization",
+    "UserProfile",
     "Language",
     "ResearchWeek",
     "ResearchProblem",
@@ -16,5 +20,5 @@ __all__ = [
     "ContentMetric",
     "WeeklyReport",
     "VideoJob",
-    "SystemConfig",
+    "OrgConfig",
 ]

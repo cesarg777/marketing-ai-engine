@@ -1,4 +1,7 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, JSON, DateTime, func
+from __future__ import annotations
+
+import uuid
+from sqlalchemy import Column, String, Text, Boolean, JSON, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
 from backend.database import Base
 
@@ -6,16 +9,15 @@ from backend.database import Base
 class ContentTemplate(Base):
     __tablename__ = "content_templates"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=True)  # NULL = system template
     name = Column(String(100), nullable=False)
     slug = Column(String(100), unique=True, nullable=False)
-    content_type = Column(String(50), nullable=False)   # carousel, case_study, meme, video, linkedin_post, blog, newsletter
+    content_type = Column(String(50), nullable=False)
     description = Column(Text, default="")
-    # JSON schema defining fields: [{"name": "title", "type": "text", "required": true, "max_length": 100}, ...]
     structure = Column(JSON, nullable=False)
-    visual_layout = Column(Text, default="")            # GrapesJS HTML
-    visual_css = Column(Text, default="")               # GrapesJS CSS
-    # Claude system prompt with {{variable}} placeholders
+    visual_layout = Column(Text, default="")
+    visual_css = Column(Text, default="")
     system_prompt = Column(Text, default="")
     default_tone = Column(String(50), default="professional")
     is_active = Column(Boolean, default=True)

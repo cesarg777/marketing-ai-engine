@@ -37,8 +37,9 @@ def get_db():
 
 def create_tables():
     from backend.models import (  # noqa: F401
-        Language, ResearchWeek, ResearchProblem, ContentTemplate,
+        Organization, UserProfile, Language,
+        ResearchWeek, ResearchProblem, ContentTemplate,
         ContentItem, Publication, ContentMetric, WeeklyReport,
-        VideoJob, SystemConfig,
+        VideoJob, OrgConfig,
     )
     Base.metadata.create_all(bind=engine)

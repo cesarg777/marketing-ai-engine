@@ -1,15 +1,18 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, ForeignKey, func
+from __future__ import annotations
+
+import uuid
+from sqlalchemy import Column, String, Integer, Text, JSON, DateTime, ForeignKey, func
 from backend.database import Base
 
 
 class VideoJob(Base):
     __tablename__ = "video_jobs"
 
-    id = Column(Integer, primary_key=True)
-    content_item_id = Column(Integer, ForeignKey("content_items.id"), nullable=False)
-    provider = Column(String(30), nullable=False)        # heygen, synthesia, did
-    provider_job_id = Column(String(200), default="")    # External job/video ID
-    status = Column(String(20), default="pending")       # pending, processing, completed, failed
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    content_item_id = Column(String(36), ForeignKey("content_items.id"), nullable=False)
+    provider = Column(String(30), nullable=False)
+    provider_job_id = Column(String(200), default="")
+    status = Column(String(20), default="pending")
     script = Column(Text, default="")
     avatar_id = Column(String(200), default="")
     language = Column(String(10), default="en")
