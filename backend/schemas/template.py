@@ -19,6 +19,7 @@ class TemplateCreate(BaseModel):
     system_prompt: str = Field(default="", max_length=10000)
     default_tone: str = Field(default="professional", max_length=50)
     reference_urls: list[ReferenceUrl] = Field(default_factory=list, max_length=20)
+    design_source: dict | None = Field(default=None)
 
 
 class TemplateUpdate(BaseModel):
@@ -30,6 +31,7 @@ class TemplateUpdate(BaseModel):
     system_prompt: str | None = Field(default=None, max_length=10000)
     default_tone: str | None = Field(default=None, max_length=50)
     reference_urls: list[ReferenceUrl] | None = Field(default=None, max_length=20)
+    design_source: dict | None = None
     is_active: bool | None = None
 
 
@@ -62,6 +64,7 @@ class TemplateResponse(BaseModel):
     system_prompt: str
     default_tone: str
     reference_urls: list[dict] = []
+    design_source: dict | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime | None

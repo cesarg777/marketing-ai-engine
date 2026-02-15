@@ -34,7 +34,7 @@ def validate_uuid(value: str, param_name: str = "id") -> str:
 
 TEMPLATE_UPDATE_FIELDS = frozenset({
     "name", "description", "structure", "visual_layout",
-    "visual_css", "system_prompt", "default_tone", "reference_urls", "is_active",
+    "visual_css", "system_prompt", "default_tone", "reference_urls", "design_source", "is_active",
 })
 
 CONTENT_UPDATE_FIELDS = frozenset({

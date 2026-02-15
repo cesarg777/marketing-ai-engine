@@ -60,6 +60,13 @@ def run_migrations():
                 if not is_sqlite
                 else "ALTER TABLE content_templates ADD COLUMN reference_urls TEXT DEFAULT '[]'",
             ),
+            (
+                "content_templates",
+                "design_source",
+                "ALTER TABLE content_templates ADD COLUMN design_source JSONB DEFAULT NULL"
+                if not is_sqlite
+                else "ALTER TABLE content_templates ADD COLUMN design_source TEXT DEFAULT NULL",
+            ),
         ]
         for table, column, ddl in migrations:
             existing = [c["name"] for c in inspector.get_columns(table)]

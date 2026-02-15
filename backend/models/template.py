@@ -24,6 +24,7 @@ class ContentTemplate(Base):
     system_prompt = Column(Text, default="")
     default_tone = Column(String(50), default="professional")
     reference_urls = Column(JSON, default=list)  # [{label, url}]
+    design_source = Column(JSON, nullable=True)  # {provider, file_key, field_map, ...}
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

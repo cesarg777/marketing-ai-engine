@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.auth import get_current_org_id
-from backend.services.org_config_service import get_org_config, upsert_org_config, delete_org_config
+from backend.services.org_config_service import get_org_config, upsert_org_config, delete_org_config, mask_secret
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,8 @@ router = APIRouter()
 
 ICP_CONFIG_KEY = "icp_profile"
 GA4_CONFIG_KEY = "ga4_config"
+FIGMA_CONFIG_KEY = "figma_config"
+CANVA_CONFIG_KEY = "canva_config"
 
 
 # ─── Brand Schemas ───
@@ -233,3 +235,112 @@ def disconnect_ga4(
     """Disconnect GA4."""
     delete_org_config(db, org_id, GA4_CONFIG_KEY)
     return {"detail": "GA4 disconnected."}
+
+
+# ─── Figma Connection ───
+
+class FigmaConnectRequest(BaseModel):
+    personal_access_token: str = Field(..., min_length=10, max_length=300)
+
+
+class FigmaStatusResponse(BaseModel):
+    connected: bool
+    user_name: str | None = None
+    masked_token: str | None = None
+
+
+@router.post("/figma/connect", response_model=FigmaStatusResponse)
+def connect_figma(
+    data: FigmaConnectRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Connect Figma using a Personal Access Token."""
+    from backend.services.figma_service import validate_token
+
+    try:
+        user_info = validate_token(data.personal_access_token)
+    except Exception as e:
+        logger.warning("Figma connection failed for org %s: %s", org_id, e)
+        raise HTTPException(status_code=400, detail=f"Invalid Figma token: {str(e)[:200]}")
+
+    user_name = user_info.get("handle") or user_info.get("email", "")
+    upsert_org_config(db, org_id, FIGMA_CONFIG_KEY, {
+        "token": data.personal_access_token,
+        "user_name": user_name,
+    })
+
+    return FigmaStatusResponse(
+        connected=True,
+        user_name=user_name,
+        masked_token=mask_secret(data.personal_access_token),
+    )
+
+
+@router.get("/figma/status", response_model=FigmaStatusResponse)
+def get_figma_status(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Check Figma connection status."""
+    config = get_org_config(db, org_id, FIGMA_CONFIG_KEY)
+    if not config:
+        return FigmaStatusResponse(connected=False)
+    return FigmaStatusResponse(
+        connected=True,
+        user_name=config.get("user_name"),
+        masked_token=mask_secret(config.get("token", "")),
+    )
+
+
+@router.delete("/figma/disconnect")
+def disconnect_figma(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Disconnect Figma."""
+    delete_org_config(db, org_id, FIGMA_CONFIG_KEY)
+    return {"detail": "Figma disconnected."}
+
+
+# ─── Figma Browsing ───
+
+@router.get("/figma/files/{file_key}")
+def browse_figma_file(
+    file_key: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Browse a Figma file's pages and frames."""
+    from backend.services.figma_service import get_file_info
+
+    config = get_org_config(db, org_id, FIGMA_CONFIG_KEY)
+    if not config:
+        raise HTTPException(status_code=404, detail="Figma not connected. Go to Settings to connect.")
+
+    try:
+        return get_file_info(config["token"], file_key)
+    except Exception as e:
+        logger.warning("Figma file browse failed for org %s: %s", org_id, e)
+        raise HTTPException(status_code=400, detail=f"Failed to read Figma file: {str(e)[:200]}")
+
+
+@router.get("/figma/files/{file_key}/frames/{node_id}/text-nodes")
+def get_figma_text_nodes(
+    file_key: str,
+    node_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Get text nodes from a specific Figma frame for field mapping."""
+    from backend.services.figma_service import get_frame_text_nodes
+
+    config = get_org_config(db, org_id, FIGMA_CONFIG_KEY)
+    if not config:
+        raise HTTPException(status_code=404, detail="Figma not connected. Go to Settings to connect.")
+
+    try:
+        return get_frame_text_nodes(config["token"], file_key, node_id)
+    except Exception as e:
+        logger.warning("Figma text nodes failed for org %s: %s", org_id, e)
+        raise HTTPException(status_code=400, detail=f"Failed to get text nodes: {str(e)[:200]}")

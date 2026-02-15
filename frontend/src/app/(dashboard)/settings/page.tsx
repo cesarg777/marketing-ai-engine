@@ -24,6 +24,9 @@ import {
   connectGA4,
   getGA4Status,
   disconnectGA4,
+  connectFigma,
+  getFigmaStatus,
+  disconnectFigma,
   getICPProfile,
   saveICPProfile,
   getBrandSettings,
@@ -56,6 +59,7 @@ import {
   EyeOff,
   Target,
   BarChart3,
+  PenTool,
 } from "lucide-react";
 import {
   PageHeader,
@@ -159,6 +163,13 @@ export default function SettingsPage() {
   const [ga4Json, setGa4Json] = useState("");
   const [ga4PropertyId, setGa4PropertyId] = useState("");
   const [ga4Msg, setGa4Msg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Figma connection state
+  const [figmaStatus, setFigmaStatus] = useState<{ connected: boolean; user_name?: string; masked_token?: string }>({ connected: false });
+  const [figmaLoading, setFigmaLoading] = useState(false);
+  const [figmaPat, setFigmaPat] = useState("");
+  const [figmaShowKey, setFigmaShowKey] = useState(false);
+  const [figmaMsg, setFigmaMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Brand settings state
   const [brandWebsite, setBrandWebsite] = useState("");
@@ -275,6 +286,47 @@ export default function SettingsPage() {
     }
   };
 
+  const loadFigmaStatus = () => {
+    getFigmaStatus()
+      .then((r) => setFigmaStatus(r.data))
+      .catch(() => {});
+  };
+
+  const handleConnectFigma = async () => {
+    if (!figmaPat.trim()) return;
+    setFigmaLoading(true);
+    setFigmaMsg(null);
+    try {
+      const res = await connectFigma({ personal_access_token: figmaPat });
+      setFigmaStatus(res.data);
+      setFigmaPat("");
+      setFigmaMsg({ type: "success", text: "Figma connected successfully." });
+      setTimeout(() => setFigmaMsg(null), 4000);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to connect Figma.";
+      setFigmaMsg({ type: "error", text: msg });
+      setTimeout(() => setFigmaMsg(null), 6000);
+    } finally {
+      setFigmaLoading(false);
+    }
+  };
+
+  const handleDisconnectFigma = async () => {
+    setFigmaLoading(true);
+    setFigmaMsg(null);
+    try {
+      await disconnectFigma();
+      setFigmaStatus({ connected: false });
+      setFigmaMsg({ type: "success", text: "Figma disconnected." });
+      setTimeout(() => setFigmaMsg(null), 4000);
+    } catch {
+      setFigmaMsg({ type: "error", text: "Failed to disconnect Figma." });
+      setTimeout(() => setFigmaMsg(null), 4000);
+    } finally {
+      setFigmaLoading(false);
+    }
+  };
+
   const handleSaveICP = async () => {
     setIcpSaving(true);
     setIcpMsg(null);
@@ -321,6 +373,7 @@ export default function SettingsPage() {
     loadChannelStatuses();
     loadICPProfile();
     loadGA4Status();
+    loadFigmaStatus();
     loadBrandSettings();
   }, []);
 
@@ -1599,6 +1652,105 @@ export default function SettingsPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </FormSection>
+
+      {/* Design Integrations Section */}
+      <FormSection title="Design Integrations" className="mt-6">
+        {figmaMsg && (
+          <Alert variant={figmaMsg.type} className="mb-4">
+            {figmaMsg.text}
+          </Alert>
+        )}
+
+        <p className="text-xs text-zinc-500 mb-4">
+          Connect your design tools to render visual content directly from your editable designs.
+          Link specific Figma files or Canva templates to each content template.
+        </p>
+
+        <div className="space-y-1.5">
+          {/* Figma */}
+          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between p-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                  <PenTool size={14} className="text-purple-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-200">Figma</span>
+                    {figmaStatus.connected ? (
+                      <Badge variant="success" size="sm">Connected</Badge>
+                    ) : (
+                      <Badge variant="default" size="sm">Not connected</Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {figmaStatus.connected
+                      ? `Connected as ${figmaStatus.user_name}`
+                      : "Connect with a Personal Access Token to use Figma designs"}
+                  </span>
+                </div>
+              </div>
+              {figmaStatus.connected ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-zinc-500 font-mono">{figmaStatus.masked_token}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDisconnectFigma}
+                    loading={figmaLoading}
+                    icon={<Unlink size={13} />}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <input
+                      type={figmaShowKey ? "text" : "password"}
+                      placeholder="Figma Personal Access Token"
+                      value={figmaPat}
+                      onChange={(e) => setFigmaPat(e.target.value)}
+                      className="w-56 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs text-zinc-200 pr-8"
+                      onKeyDown={(e) => e.key === "Enter" && handleConnectFigma()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFigmaShowKey(!figmaShowKey)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400"
+                    >
+                      {figmaShowKey ? <EyeOff size={12} /> : <Eye size={12} />}
+                    </button>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleConnectFigma}
+                    loading={figmaLoading}
+                    disabled={!figmaPat.trim()}
+                    icon={<Link2 size={13} />}
+                  >
+                    Connect
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Canva — coming soon */}
+          <div className="flex items-center justify-between p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                <Palette size={14} className="text-cyan-400" />
+              </div>
+              <div>
+                <span className="text-sm font-medium text-zinc-200">Canva</span>
+                <span className="text-xs text-zinc-500 block">Brand templates with Autofill API</span>
+              </div>
+            </div>
+            <Badge variant="default" size="sm">Coming soon</Badge>
           </div>
         </div>
       </FormSection>

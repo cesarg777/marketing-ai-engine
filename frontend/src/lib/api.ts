@@ -339,6 +339,59 @@ export const getBrandSettings = () =>
 export const saveBrandSettings = (data: BrandSettings) =>
   api.put<BrandSettings>("/settings/brand", data);
 
+// --- Figma Connection ---
+export const connectFigma = (data: { personal_access_token: string }) =>
+  api.post("/settings/figma/connect", data);
+
+export const getFigmaStatus = () =>
+  api.get<{ connected: boolean; user_name?: string; masked_token?: string }>(
+    "/settings/figma/status"
+  );
+
+export const disconnectFigma = () => api.delete("/settings/figma/disconnect");
+
+// --- Figma Browsing ---
+export interface FigmaFrame {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface FigmaPage {
+  id: string;
+  name: string;
+  frames: FigmaFrame[];
+}
+
+export interface FigmaFileInfo {
+  name: string;
+  last_modified: string;
+  thumbnail_url: string;
+  pages: FigmaPage[];
+}
+
+export interface FigmaTextNode {
+  id: string;
+  name: string;
+  characters: string;
+}
+
+export const browseFigmaFile = (fileKey: string) =>
+  api.get<FigmaFileInfo>(`/settings/figma/files/${fileKey}`);
+
+export const getFigmaTextNodes = (fileKey: string, nodeId: string) =>
+  api.get<FigmaTextNode[]>(
+    `/settings/figma/files/${fileKey}/frames/${encodeURIComponent(nodeId)}/text-nodes`
+  );
+
+// --- Canva Connection ---
+export const getCanvaStatus = () =>
+  api.get<{ connected: boolean; user_name?: string }>(
+    "/settings/canva/status"
+  );
+
+export const disconnectCanva = () => api.delete("/settings/canva/disconnect");
+
 // --- Onboarding ---
 export const checkOnboardingStatus = () => api.get("/onboarding/status");
 
