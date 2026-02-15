@@ -25,65 +25,140 @@ RENDERS_DIR = Config.TMP_DIR / "renders"
 # Content types that produce visual assets
 VISUAL_TYPES = {"carousel", "meet_the_team", "meme", "case_study", "infografia"}
 
-# Fields that are metadata or mapped separately — not slide content
-_CAROUSEL_SKIP_FIELDS = {"title", "_model", "_tokens", "cta", "social_caption", "social_hashtags"}
-_CAROUSEL_CTA_ALIASES = {"cierre", "closing", "cta_text", "call_to_action"}
-_CAROUSEL_CAPTION_ALIASES = {"copylinkedin", "copy_linkedin", "linkedin_caption", "caption", "descripcion"}
+# ---------------------------------------------------------------------------
+# Field alias maps per visual type
+# Each entry: expected_field_name -> set of aliases (Spanish + English variants)
+# ---------------------------------------------------------------------------
+_METADATA_FIELDS = {"_model", "_tokens"}
+
+_FIELD_ALIASES = {
+    "carousel": {
+        "title": set(),
+        "cta": {"cierre", "closing", "cta_text", "call_to_action"},
+        "social_caption": {"copylinkedin", "copy_linkedin", "linkedin_caption", "caption", "descripcion"},
+        "social_hashtags": {"hashtags"},
+    },
+    "meet_the_team": {
+        "title": set(),
+        "person_name": {"nombre", "name", "nombre_persona"},
+        "role": {"cargo", "puesto", "titulo", "position"},
+        "quote": {"cita", "frase", "testimonio"},
+        "bio": {"biografia", "about", "descripcion"},
+        "fun_fact": {"dato_curioso", "curiosidad"},
+        "photo_url": {"foto", "imagen", "photo"},
+        "social_caption": {"copylinkedin", "copy_linkedin", "caption"},
+        "social_hashtags": {"hashtags"},
+    },
+    "meme": {
+        "title": set(),
+        "top_text": {"texto_superior", "texto_arriba", "text_top", "setup"},
+        "bottom_text": {"texto_inferior", "texto_abajo", "text_bottom", "punchline", "remate"},
+        "image_prompt": {"prompt_imagen", "imagen", "image"},
+        "context": {"contexto", "explicacion"},
+        "social_caption": {"copylinkedin", "copy_linkedin", "caption"},
+        "social_hashtags": {"hashtags"},
+    },
+    "case_study": {
+        "title": set(),
+        "client": {"cliente", "empresa", "company"},
+        "challenge": {"problema", "desafio", "reto", "pain_point"},
+        "solution": {"solucion", "estrategia", "approach"},
+        "results": {"resultados", "impacto", "impact"},
+        "industry": {"industria", "sector", "vertical"},
+        "testimonial": {"testimonio", "quote", "cita"},
+        "social_caption": {"copylinkedin", "copy_linkedin", "caption"},
+        "social_hashtags": {"hashtags"},
+    },
+    "infografia": {
+        "title": set(),
+        "social_caption": {"copylinkedin", "copy_linkedin", "caption"},
+        "social_hashtags": {"hashtags"},
+    },
+}
+
+# Visual types that use an array field built from flat content fields
+_ARRAY_FIELD_TYPES = {
+    "carousel": "slides",       # [{headline, body}]
+    "infografia": "slides",     # [{headline, body}]
+    "case_study": "key_metrics", # [{metric, value}]
+}
 
 
-def _normalize_carousel_data(data: dict) -> dict:
-    """Normalize carousel content_data so it matches what carousel.html expects.
+def _resolve_field(data: dict, field: str, aliases: set) -> str:
+    """Find a field value by checking the canonical name first, then aliases."""
+    if field in data and data[field]:
+        return data[field]
+    for alias in aliases:
+        if alias in data and data[alias]:
+            return data[alias]
+    return ""
 
-    Handles two formats:
-    - Standard: {title, slides: [{headline, body}...], cta, social_caption, ...}
-    - Flat/custom: {title, caratula, desarrollo1, desarrollo2, ..., cierre, copylinkedin}
 
-    For flat format, builds slides[] from the remaining text fields.
+def _normalize_visual_data(content_type: str, data: dict) -> dict:
+    """Normalize content_data so it matches what the HTML template expects.
+
+    For each visual type:
+    1. Maps field aliases (Spanish/custom names → canonical names)
+    2. Builds array fields (slides[], key_metrics[]) from flat custom fields
+    3. Preserves metadata (_model, _tokens)
     """
-    # Already has slides as a list — use as-is
-    if isinstance(data.get("slides"), list) and data["slides"]:
-        return data
+    aliases_map = _FIELD_ALIASES.get(content_type)
+    if not aliases_map:
+        return data  # Unknown type, pass through
 
-    normalized = {"title": data.get("title", "")}
+    # If the template has an array field and it already exists, use data as-is
+    array_field = _ARRAY_FIELD_TYPES.get(content_type)
+    if array_field and isinstance(data.get(array_field), list) and data[array_field]:
+        # Still resolve aliases for non-array fields
+        normalized = dict(data)
+        for field, field_aliases in aliases_map.items():
+            if field not in normalized or not normalized[field]:
+                resolved = _resolve_field(data, field, field_aliases)
+                if resolved:
+                    normalized[field] = resolved
+        return normalized
 
-    # Map CTA aliases
-    cta = data.get("cta", "")
-    if not cta:
-        for alias in _CAROUSEL_CTA_ALIASES:
-            if alias in data and data[alias]:
-                cta = data[alias]
-                break
-    normalized["cta"] = cta
+    # Build normalized dict from alias resolution
+    normalized = {}
+    mapped_source_keys = set()  # Track which source keys were consumed by alias mapping
 
-    # Map social_caption aliases
-    caption = data.get("social_caption", "")
-    if not caption:
-        for alias in _CAROUSEL_CAPTION_ALIASES:
-            if alias in data and data[alias]:
-                caption = data[alias]
-                break
-    normalized["social_caption"] = caption
-    normalized["social_hashtags"] = data.get("social_hashtags", "")
+    for field, field_aliases in aliases_map.items():
+        resolved = _resolve_field(data, field, field_aliases)
+        normalized[field] = resolved
+        # Track which keys were consumed
+        if resolved:
+            if field in data:
+                mapped_source_keys.add(field)
+            for alias in field_aliases:
+                if alias in data and data[alias] == resolved:
+                    mapped_source_keys.add(alias)
+                    break
 
-    # Build slides from remaining fields
-    skip = _CAROUSEL_SKIP_FIELDS | _CAROUSEL_CTA_ALIASES | _CAROUSEL_CAPTION_ALIASES
-    slides = []
-    for key, value in data.items():
-        if key.lower() in skip or not value or not isinstance(value, str):
-            continue
-        # Use field name (cleaned up) as headline, value as body
-        headline = key.replace("_", " ").replace("-", " ").title()
-        slides.append({"headline": headline, "body": value})
+    # Build array field from remaining flat text fields
+    if array_field:
+        skip = set(aliases_map.keys()) | _METADATA_FIELDS
+        for field_aliases in aliases_map.values():
+            skip |= field_aliases
+        skip |= mapped_source_keys
 
-    normalized["slides"] = slides
+        items = []
+        for key, value in data.items():
+            if key in skip or key.startswith("_") or not value or not isinstance(value, str):
+                continue
+            headline = key.replace("_", " ").replace("-", " ").title()
+            if content_type == "case_study":
+                items.append({"metric": headline, "value": value})
+            else:
+                items.append({"headline": headline, "body": value})
+        normalized[array_field] = items
 
     # Preserve metadata
-    if "_model" in data:
-        normalized["_model"] = data["_model"]
-    if "_tokens" in data:
-        normalized["_tokens"] = data["_tokens"]
+    for meta in _METADATA_FIELDS:
+        if meta in data:
+            normalized[meta] = data[meta]
 
     return normalized
+
 
 # Map content_type to template file and output format
 TEMPLATE_MAP = {
@@ -121,14 +196,17 @@ def render(
     if not content_data:
         raise ValueError("content_data is empty — cannot render without content")
 
-    # Normalize carousel data (handles both standard slides[] and flat custom fields)
-    if content_type == "carousel":
-        content_data = _normalize_carousel_data(content_data)
-        if not content_data.get("slides"):
-            raise ValueError(
-                f"Carousel has no renderable slides. "
-                f"Original keys: {list(content_data.keys())}"
-            )
+    # Normalize visual data: map field aliases + build arrays from flat fields
+    if content_type in _FIELD_ALIASES:
+        content_data = _normalize_visual_data(content_type, content_data)
+
+    # Validate array fields exist for types that need them
+    array_field = _ARRAY_FIELD_TYPES.get(content_type)
+    if array_field and not content_data.get(array_field):
+        raise ValueError(
+            f"'{content_type}' has no renderable '{array_field}'. "
+            f"Got keys: {list(content_data.keys())}"
+        )
 
     config = TEMPLATE_MAP[content_type]
     output_id = content_id or str(uuid.uuid4())
