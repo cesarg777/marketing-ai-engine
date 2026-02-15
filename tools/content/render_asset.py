@@ -58,6 +58,23 @@ def render(
     if content_type not in TEMPLATE_MAP:
         raise ValueError(f"Unknown visual content type: {content_type}. Supported: {list(TEMPLATE_MAP.keys())}")
 
+    if not content_data:
+        raise ValueError("content_data is empty — cannot render without content")
+
+    # Validate required fields per content type
+    if content_type == "carousel":
+        if "slides" not in content_data or not isinstance(content_data.get("slides"), list):
+            raise ValueError(
+                f"Carousel requires 'slides' as a list. "
+                f"Got keys: {list(content_data.keys())}"
+            )
+        if not content_data["slides"]:
+            raise ValueError("Carousel 'slides' list is empty")
+        if "title" not in content_data:
+            raise ValueError(
+                f"Carousel requires 'title'. Got keys: {list(content_data.keys())}"
+            )
+
     config = TEMPLATE_MAP[content_type]
     output_id = content_id or str(uuid.uuid4())
 
@@ -78,11 +95,17 @@ def render(
         for a in template_assets:
             assets_dict[a.get("asset_type", "")] = a.get("file_url", "")
 
-    rendered_html = template.render(
-        **content_data,
-        css_override=visual_css_override or "",
-        assets=assets_dict,
-    )
+    try:
+        rendered_html = template.render(
+            **content_data,
+            css_override=visual_css_override or "",
+            assets=assets_dict,
+        )
+    except Exception as e:
+        raise ValueError(
+            f"Jinja2 template rendering failed for '{content_type}': {e}. "
+            f"content_data keys: {list(content_data.keys())}"
+        )
 
     # Ensure output directory exists
     RENDERS_DIR.mkdir(parents=True, exist_ok=True)
@@ -92,33 +115,38 @@ def render(
     ext = output_format
     output_path = RENDERS_DIR / f"{output_id}.{ext}"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page(
-            viewport={"width": config["width"], "height": config["height"]},
-            device_scale_factor=2,  # 2x for retina quality
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(
+                viewport={"width": config["width"], "height": config["height"]},
+                device_scale_factor=2,  # 2x for retina quality
+            )
+            page.set_content(rendered_html, wait_until="networkidle")
+            # Wait for fonts to load
+            page.wait_for_timeout(500)
+
+            if output_format == "pdf":
+                # For carousel: each slide is a "page" in the HTML, render as PDF
+                page.pdf(
+                    path=str(output_path),
+                    width=f"{config['width']}px",
+                    height=f"{config['height']}px",
+                    print_background=True,
+                )
+            else:
+                # PNG: screenshot the full page
+                page.screenshot(
+                    path=str(output_path),
+                    full_page=True,
+                    type="png",
+                )
+
+            browser.close()
+    except Exception as e:
+        raise RuntimeError(
+            f"Playwright browser rendering failed for '{content_type}': {e}"
         )
-        page.set_content(rendered_html, wait_until="networkidle")
-        # Wait for fonts to load
-        page.wait_for_timeout(500)
-
-        if output_format == "pdf":
-            # For carousel: each slide is a "page" in the HTML, render as PDF
-            page.pdf(
-                path=str(output_path),
-                width=f"{config['width']}px",
-                height=f"{config['height']}px",
-                print_background=True,
-            )
-        else:
-            # PNG: screenshot the full page
-            page.screenshot(
-                path=str(output_path),
-                full_page=True,
-                type="png",
-            )
-
-        browser.close()
 
     return {
         "file_path": str(output_path),

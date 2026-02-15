@@ -244,7 +244,12 @@ def render_content(
         )
 
     from backend.services.render_service import render_content_item
-    result = render_content_item(db=db, item=item, template=template)
+    try:
+        result = render_content_item(db=db, item=item, template=template)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Rendering failed: {str(e)}")
 
     return RenderResponse(
         file_name=result["file_name"],
