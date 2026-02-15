@@ -99,7 +99,16 @@ def on_startup():
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "version": "0.1.0", "cors_origins": cors_origins, "frontend_url_raw": Config.FRONTEND_URL, "environment": Config.ENVIRONMENT}
+    import os
+    return {
+        "status": "ok",
+        "version": "0.1.0",
+        "cors_origins": cors_origins,
+        "frontend_url_config": Config.FRONTEND_URL,
+        "frontend_url_env": os.getenv("FRONTEND_URL", "NOT_SET"),
+        "environment": Config.ENVIRONMENT,
+        "all_env_keys": [k for k in os.environ.keys() if "FRONT" in k or "SUPABASE" in k or "ENV" in k.upper()],
+    }
 
 
 @app.get("/api/auth/me")
