@@ -50,7 +50,12 @@ const CONTENT_TYPES = [
 
 const FIELD_TYPES = ["text", "textarea", "number", "url", "list", "image"];
 
+/** Sanitize a field name to snake_case (only a-z, 0-9, underscores). */
+const sanitizeFieldName = (raw: string) =>
+  raw.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "").slice(0, 64);
+
 const ASSET_TYPES = [
+  { value: "reference_file", label: "AI Style Reference" },
   { value: "background_image", label: "Background Image" },
   { value: "header_image", label: "Header Image" },
   { value: "footer_image", label: "Footer Image" },
@@ -58,8 +63,6 @@ const ASSET_TYPES = [
   { value: "layout_pdf", label: "Layout PDF" },
   { value: "custom_image", label: "Custom Image" },
 ];
-
-const REFERENCE_ASSET_TYPE = "reference_file";
 
 interface FieldDef {
   name: string;
@@ -96,8 +99,7 @@ export default function TemplateDetailPage({
   // Template Assets
   const [assets, setAssets] = useState<TemplateAsset[]>([]);
   const [uploadingAsset, setUploadingAsset] = useState(false);
-  const [uploadingRef, setUploadingRef] = useState(false);
-  const [selectedAssetType, setSelectedAssetType] = useState("custom_image");
+  const [selectedAssetType, setSelectedAssetType] = useState("reference_file");
 
   const isSystem = template?.org_id === null;
 
@@ -200,37 +202,8 @@ export default function TemplateDetailPage({
     }
   };
 
-  // Reference file upload
-  const handleRefUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    setUploadingRef(true);
-    setError("");
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("asset_type", REFERENCE_ASSET_TYPE);
-      formData.append("name", file.name);
-      await uploadTemplateAsset(id, formData);
-      await loadAssets();
-      setSuccess("Reference file uploaded.");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      if (axios.isAxiosError(err) && err.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError("Failed to upload reference file.");
-      }
-    } finally {
-      setUploadingRef(false);
-      e.target.value = "";
-    }
-  };
 
-  // Derived lists: separate reference files from format assets
-  const referenceAssets = assets.filter((a) => a.asset_type === REFERENCE_ASSET_TYPE);
-  const formatAssets = assets.filter((a) => a.asset_type !== REFERENCE_ASSET_TYPE);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -433,7 +406,7 @@ export default function TemplateDetailPage({
                 <input
                   type="text"
                   value={f.name}
-                  onChange={(e) => updateField(idx, "name", e.target.value)}
+                  onChange={(e) => updateField(idx, "name", sanitizeFieldName(e.target.value))}
                   placeholder="field_name"
                   disabled={isSystem}
                   className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -539,16 +512,17 @@ export default function TemplateDetailPage({
           )}
         </FormSection>
 
-        {/* Reference Files (for AI vision) */}
+        {/* Assets & References */}
         {!isSystem && (
-          <FormSection title="Reference Files">
+          <FormSection title="Assets & References">
             <p className="text-xs text-zinc-600 mb-3">
-              Upload PNG, JPG, or PDF files as visual references. The AI will see these images and match their style, layout, and format when generating content.
+              Upload files for this template. <strong className="text-zinc-500">AI Style Reference</strong> files are shown to the AI so it can match your visual style. Other types are used during content rendering (backgrounds, logos, etc.).
             </p>
 
-            {referenceAssets.length > 0 && (
+            {/* Existing assets grid */}
+            {assets.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                {referenceAssets.map((asset) => (
+                {assets.map((asset) => (
                   <div
                     key={asset.id}
                     className="group relative bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-3 hover:border-[var(--border-hover)] transition-colors"
@@ -567,65 +541,8 @@ export default function TemplateDetailPage({
                       </div>
                     )}
                     <span className="text-xs text-zinc-300 truncate block">{asset.name}</span>
-                    <div className="text-[10px] text-zinc-600 mt-1">
-                      {(asset.file_size / 1024).toFixed(0)} KB
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteAsset(asset.id)}
-                      className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-zinc-600 hover:text-red-400 transition-all"
-                      title="Delete reference"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <label className="block">
-              <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-[var(--border-subtle)] rounded-lg cursor-pointer hover:border-indigo-500/40 hover:bg-zinc-800/30 transition-colors">
-                <Upload size={16} className="text-zinc-500" />
-                <span className="text-sm text-zinc-500">
-                  {uploadingRef ? "Uploading..." : "Upload reference image or PDF"}
-                </span>
-              </div>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml,image/webp,application/pdf"
-                onChange={handleRefUpload}
-                disabled={uploadingRef}
-                className="hidden"
-              />
-            </label>
-          </FormSection>
-        )}
-
-        {/* Format & Assets */}
-        {!isSystem && (
-          <FormSection title="Format & Assets">
-            <p className="text-xs text-zinc-600 mb-3">
-              Upload images or PDFs as visual formats for this template. These are used during rendering.
-            </p>
-
-            {/* Existing assets grid */}
-            {formatAssets.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                {formatAssets.map((asset) => (
-                  <div
-                    key={asset.id}
-                    className="group relative bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-3 hover:border-[var(--border-hover)] transition-colors"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      {asset.mime_type.startsWith("image/") ? (
-                        <Image size={14} className="text-indigo-400 shrink-0" />
-                      ) : (
-                        <FileText size={14} className="text-amber-400 shrink-0" />
-                      )}
-                      <span className="text-xs text-zinc-300 truncate">{asset.name}</span>
-                    </div>
-                    <Badge size="sm" variant="default">
-                      {asset.asset_type.replace(/_/g, " ")}
+                    <Badge size="sm" variant={asset.asset_type === "reference_file" ? "info" : "default"} className="mt-1">
+                      {ASSET_TYPES.find((t) => t.value === asset.asset_type)?.label || asset.asset_type.replace(/_/g, " ")}
                     </Badge>
                     <div className="text-[10px] text-zinc-600 mt-1">
                       {(asset.file_size / 1024).toFixed(0)} KB
@@ -652,7 +569,7 @@ export default function TemplateDetailPage({
                 className="w-48"
               />
               <label className="flex-1">
-                <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-[var(--border-subtle)] rounded-lg cursor-pointer hover:border-[var(--border-hover)] hover:bg-zinc-800/30 transition-colors">
+                <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-[var(--border-subtle)] rounded-lg cursor-pointer hover:border-indigo-500/40 hover:bg-zinc-800/30 transition-colors">
                   <Upload size={16} className="text-zinc-500" />
                   <span className="text-sm text-zinc-500">
                     {uploadingAsset ? "Uploading..." : "Click to upload (PNG, JPG, SVG, PDF)"}

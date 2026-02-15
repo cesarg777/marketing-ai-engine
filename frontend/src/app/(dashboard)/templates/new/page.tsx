@@ -28,6 +28,10 @@ const CONTENT_TYPES = [
 
 const FIELD_TYPES = ["text", "textarea", "number", "url", "list", "image"];
 
+/** Sanitize a field name to snake_case (only a-z, 0-9, underscores). */
+const sanitizeFieldName = (raw: string) =>
+  raw.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "").slice(0, 64);
+
 interface FieldDef {
   name: string;
   type: string;
@@ -220,7 +224,7 @@ export default function NewTemplatePage() {
                 <input
                   type="text"
                   value={f.name}
-                  onChange={(e) => updateField(idx, "name", e.target.value)}
+                  onChange={(e) => updateField(idx, "name", sanitizeFieldName(e.target.value))}
                   placeholder="field_name"
                   className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors"
                 />
@@ -305,7 +309,7 @@ export default function NewTemplatePage() {
             </div>
           )}
           <p className="text-xs text-zinc-700 mt-2">
-            You can upload reference files (images, PDFs) and format assets after creating the template.
+            After creating the template, you&apos;ll be redirected to the edit page where you can upload images and PDFs as visual references for the AI.
           </p>
         </FormSection>
 

@@ -83,17 +83,33 @@ def _repair_json(raw: str) -> dict:
         raise ValueError(f"Could not parse JSON after repair attempts: {e}")
 
 
-def _build_tool_schema(template_structure: list[dict]) -> dict:
-    """Convert template_structure field definitions into a JSON Schema for tool_use."""
+def _sanitize_key(name: str) -> str:
+    """Sanitize a field name to match Claude API pattern: ^[a-zA-Z0-9_.-]{1,64}$"""
+    safe = re.sub(r'[^a-zA-Z0-9_.-]', '_', name.strip())
+    safe = re.sub(r'_+', '_', safe).strip('_')
+    if safe and safe[0].isdigit():
+        safe = '_' + safe
+    return (safe or 'field')[:64]
+
+
+def _build_tool_schema(template_structure: list[dict]) -> tuple[dict, dict]:
+    """Convert template_structure field definitions into a JSON Schema for tool_use.
+
+    Returns (tool_definition, key_map) where key_map maps sanitized_name → original_name.
+    """
     properties = {
         "title": {"type": "string", "description": "Compelling title for this content piece"},
     }
     required = ["title"]
+    key_map: dict[str, str] = {}  # sanitized → original
 
     for field in template_structure:
         name = field.get("name", "")
         if not name or name == "title":
             continue
+        safe_name = _sanitize_key(name)
+        key_map[safe_name] = name
+
         field_type = field.get("type", "text")
         desc = field.get("description", "")
 
@@ -106,10 +122,11 @@ def _build_tool_schema(template_structure: list[dict]) -> dict:
             item_props = {}
             item_required = []
             for sub_name, sub_def in item_schema.items():
-                item_props[sub_name] = {"type": "string"}
+                safe_sub = _sanitize_key(sub_name)
+                item_props[safe_sub] = {"type": "string"}
                 if sub_def.get("description"):
-                    item_props[sub_name]["description"] = sub_def["description"]
-                item_required.append(sub_name)
+                    item_props[safe_sub]["description"] = sub_def["description"]
+                item_required.append(safe_sub)
             prop = {
                 "type": "array",
                 "items": {
@@ -123,11 +140,11 @@ def _build_tool_schema(template_structure: list[dict]) -> dict:
         else:
             prop = {"type": "string"}
 
-        properties[name] = prop
+        properties[safe_name] = prop
         if field.get("required", False):
-            required.append(name)
+            required.append(safe_name)
 
-    return {
+    tool_def = {
         "name": "generate_content",
         "description": "Generate structured marketing content with all required fields.",
         "input_schema": {
@@ -136,6 +153,7 @@ def _build_tool_schema(template_structure: list[dict]) -> dict:
             "required": required,
         },
     }
+    return tool_def, key_map
 
 
 def _fetch_image_as_base64(url: str, mime_type: str) -> dict | None:
@@ -216,7 +234,7 @@ The content must follow this structure (each field defined below):
 Use the generate_content tool to return the content with all required fields filled in."""
 
     # Build tool definition from template structure
-    tool_def = _build_tool_schema(template_structure)
+    tool_def, key_map = _build_tool_schema(template_structure)
 
     # Build user message content — text + optional reference images
     user_content: list[dict] = []
@@ -266,6 +284,13 @@ Use the generate_content tool to return the content with all required fields fil
             content = _repair_json("".join(text_parts))
         else:
             raise RuntimeError("Claude did not return content in expected format")
+
+    # Remap sanitized keys back to original field names
+    if key_map:
+        remapped = {}
+        for k, v in content.items():
+            remapped[key_map.get(k, k)] = v
+        content = remapped
 
     # Add metadata
     content["_model"] = Config.ANTHROPIC_MODEL
