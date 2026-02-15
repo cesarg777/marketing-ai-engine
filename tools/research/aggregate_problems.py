@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Aggregate raw research data into top 10 B2B problems per niche.
 Uses Claude to analyze, deduplicate, rank, and classify.
