@@ -197,10 +197,38 @@ def _build_tool_schema(template_structure: list[dict]) -> tuple[dict, dict]:
     return tool_def, key_map
 
 
+def _is_safe_url(url: str) -> bool:
+    """Validate URL is safe to fetch (prevent SSRF)."""
+    from urllib.parse import urlparse
+    import ipaddress
+
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                return False
+        except ValueError:
+            blocked = ("localhost", "127.0.0.1", "0.0.0.0", "metadata.google", "169.254.169.254")
+            if any(hostname == b or hostname.endswith("." + b) for b in blocked):
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def _fetch_image_as_base64(url: str, mime_type: str) -> dict | None:
     """Download an image from URL and return a Claude image content block."""
+    if not _is_safe_url(url):
+        logger.warning("Blocked unsafe URL: %s", url[:200])
+        return None
     try:
-        with httpx.Client(timeout=15.0) as client:
+        with httpx.Client(timeout=15.0, max_redirects=3) as client:
             resp = client.get(url)
             resp.raise_for_status()
         data = base64.standard_b64encode(resp.content).decode("utf-8")

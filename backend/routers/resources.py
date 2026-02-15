@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.auth import get_current_org_id
-from backend.security import validate_uuid
+from backend.security import validate_uuid, limiter
 from backend.models.resource import OrgResource
 from backend.schemas.resource import ResourceResponse, ResourceUpdateRequest
 from backend.services.storage_service import upload_file, delete_file, BUCKET_UPLOADS
@@ -89,7 +89,9 @@ def get_resource(
 
 
 @router.post("/upload", status_code=201)
+@limiter.limit("10/minute")
 async def upload_resource(
+    request: Request,
     resource_type: str = Form(...),
     name: str = Form(...),
     metadata_json: str = Form("{}"),

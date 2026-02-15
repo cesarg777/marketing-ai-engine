@@ -228,7 +228,7 @@ def sync_linkedin_analytics(
         result = sync_metrics(db, org_id)
         return SyncSummary(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)[:200])
     except Exception as e:
         logger.exception("LinkedIn sync failed for org %s", org_id)
         raise HTTPException(status_code=500, detail=f"LinkedIn sync failed: {str(e)[:200]}")
@@ -245,7 +245,7 @@ def sync_ga4_analytics(
         result = sync_metrics(db, org_id)
         return SyncSummary(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)[:200])
     except Exception as e:
         logger.exception("GA4 sync failed for org %s", org_id)
         raise HTTPException(status_code=500, detail=f"GA4 sync failed: {str(e)[:200]}")

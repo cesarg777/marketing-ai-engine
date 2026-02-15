@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from backend.database import get_db
@@ -12,7 +12,7 @@ from backend.models.template_asset import TemplateAsset
 from backend.schemas.template import (
     TemplateCreate, TemplateUpdate, TemplateResponse, TemplateAssetResponse,
 )
-from backend.security import validate_uuid, safe_update, TEMPLATE_UPDATE_FIELDS
+from backend.security import validate_uuid, safe_update, TEMPLATE_UPDATE_FIELDS, limiter
 from backend.services.storage_service import upload_file, delete_file, BUCKET_UPLOADS
 
 router = APIRouter()
@@ -226,7 +226,9 @@ def list_template_assets(
 
 
 @router.post("/{template_id}/assets/upload", response_model=TemplateAssetResponse, status_code=201)
+@limiter.limit("10/minute")
 async def upload_template_asset(
+    request: Request,
     template_id: str,
     asset_type: str = Form(...),
     name: str = Form(...),

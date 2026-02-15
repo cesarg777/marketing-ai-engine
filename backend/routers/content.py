@@ -1,6 +1,9 @@
 from __future__ import annotations
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import or_
 from backend.database import get_db
 from backend.auth import get_current_org_id
@@ -112,10 +115,10 @@ def generate_content(
             additional_instructions=data.additional_instructions,
             org_id=org_id,
         )
-    except TimeoutError as e:
-        raise HTTPException(status_code=504, detail=str(e))
+    except TimeoutError:
+        raise HTTPException(status_code=504, detail="Content generation timed out. Please try again.")
     except (RuntimeError, ValueError) as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=502, detail=f"Generation failed: {str(e)[:200]}")
     return item
 
 
@@ -247,9 +250,8 @@ def render_content(
     try:
         result = render_content_item(db=db, item=item, template=template)
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Rendering failed: {str(e)}")
+        logger.exception("Rendering failed for content %s", content_id)
+        raise HTTPException(status_code=500, detail=f"Rendering failed: {str(e)[:200]}")
 
     return RenderResponse(
         file_name=result["file_name"],

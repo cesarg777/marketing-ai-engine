@@ -11,6 +11,7 @@ Usage:
 """
 import argparse
 import base64
+import html as _html
 import json
 import mimetypes
 import re as _re
@@ -288,7 +289,7 @@ def _render_overlay_html(
             f"text-align:{align};line-height:{line_height};"
             f"text-transform:{text_transform};padding:{padding}px;"
             f'overflow:hidden;z-index:2;display:flex;align-items:flex-start;">'
-            f"<span>{text}</span></div>"
+            f"<span>{_html.escape(str(text))}</span></div>"
         )
         return "\n".join(parts)
 

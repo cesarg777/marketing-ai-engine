@@ -1,10 +1,11 @@
 from __future__ import annotations
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 import httpx
 from backend.database import get_db
+from backend.security import limiter
 from backend.auth import get_current_org_id
 from backend.models.content import ContentItem, Publication
 from backend.models.metrics import ContentMetric
@@ -206,7 +207,9 @@ def create_landing_page(
 # ─── Batch Publish ───
 
 @router.post("/batch-publish")
+@limiter.limit("10/minute")
 def batch_publish(
+    request: Request,
     data: BatchPublishRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
