@@ -25,6 +25,66 @@ RENDERS_DIR = Config.TMP_DIR / "renders"
 # Content types that produce visual assets
 VISUAL_TYPES = {"carousel", "meet_the_team", "meme", "case_study", "infografia"}
 
+# Fields that are metadata or mapped separately — not slide content
+_CAROUSEL_SKIP_FIELDS = {"title", "_model", "_tokens", "cta", "social_caption", "social_hashtags"}
+_CAROUSEL_CTA_ALIASES = {"cierre", "closing", "cta_text", "call_to_action"}
+_CAROUSEL_CAPTION_ALIASES = {"copylinkedin", "copy_linkedin", "linkedin_caption", "caption", "descripcion"}
+
+
+def _normalize_carousel_data(data: dict) -> dict:
+    """Normalize carousel content_data so it matches what carousel.html expects.
+
+    Handles two formats:
+    - Standard: {title, slides: [{headline, body}...], cta, social_caption, ...}
+    - Flat/custom: {title, caratula, desarrollo1, desarrollo2, ..., cierre, copylinkedin}
+
+    For flat format, builds slides[] from the remaining text fields.
+    """
+    # Already has slides as a list — use as-is
+    if isinstance(data.get("slides"), list) and data["slides"]:
+        return data
+
+    normalized = {"title": data.get("title", "")}
+
+    # Map CTA aliases
+    cta = data.get("cta", "")
+    if not cta:
+        for alias in _CAROUSEL_CTA_ALIASES:
+            if alias in data and data[alias]:
+                cta = data[alias]
+                break
+    normalized["cta"] = cta
+
+    # Map social_caption aliases
+    caption = data.get("social_caption", "")
+    if not caption:
+        for alias in _CAROUSEL_CAPTION_ALIASES:
+            if alias in data and data[alias]:
+                caption = data[alias]
+                break
+    normalized["social_caption"] = caption
+    normalized["social_hashtags"] = data.get("social_hashtags", "")
+
+    # Build slides from remaining fields
+    skip = _CAROUSEL_SKIP_FIELDS | _CAROUSEL_CTA_ALIASES | _CAROUSEL_CAPTION_ALIASES
+    slides = []
+    for key, value in data.items():
+        if key.lower() in skip or not value or not isinstance(value, str):
+            continue
+        # Use field name (cleaned up) as headline, value as body
+        headline = key.replace("_", " ").replace("-", " ").title()
+        slides.append({"headline": headline, "body": value})
+
+    normalized["slides"] = slides
+
+    # Preserve metadata
+    if "_model" in data:
+        normalized["_model"] = data["_model"]
+    if "_tokens" in data:
+        normalized["_tokens"] = data["_tokens"]
+
+    return normalized
+
 # Map content_type to template file and output format
 TEMPLATE_MAP = {
     "carousel": {"file": "carousel.html", "format": "pdf", "width": 1080, "height": 1080},
@@ -61,18 +121,13 @@ def render(
     if not content_data:
         raise ValueError("content_data is empty — cannot render without content")
 
-    # Validate required fields per content type
+    # Normalize carousel data (handles both standard slides[] and flat custom fields)
     if content_type == "carousel":
-        if "slides" not in content_data or not isinstance(content_data.get("slides"), list):
+        content_data = _normalize_carousel_data(content_data)
+        if not content_data.get("slides"):
             raise ValueError(
-                f"Carousel requires 'slides' as a list. "
-                f"Got keys: {list(content_data.keys())}"
-            )
-        if not content_data["slides"]:
-            raise ValueError("Carousel 'slides' list is empty")
-        if "title" not in content_data:
-            raise ValueError(
-                f"Carousel requires 'title'. Got keys: {list(content_data.keys())}"
+                f"Carousel has no renderable slides. "
+                f"Original keys: {list(content_data.keys())}"
             )
 
     config = TEMPLATE_MAP[content_type]
