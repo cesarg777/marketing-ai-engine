@@ -7,6 +7,7 @@ import {
   updateResearchConfig,
   deleteResearchConfig,
   runResearchConfig,
+  getICPProfile,
 } from "@/lib/api";
 import type { ResearchProblem, ResearchConfig } from "@/types";
 import {
@@ -34,18 +35,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-const NICHES = [
-  "marketing",
-  "tech",
-  "hr",
-  "consulting",
-  "finance",
-  "healthcare",
-  "legal",
-  "saas",
+const FALLBACK_NICHES = [
+  "marketing", "tech", "hr", "consulting",
+  "finance", "healthcare", "legal", "saas",
 ];
-
-const COUNTRIES = ["US", "MX", "CO", "BR", "ES", "AR", "CL", "PE"];
+const FALLBACK_COUNTRIES = ["US", "MX", "CO", "BR", "ES", "AR", "CL", "PE"];
 
 type Tab = "configs" | "results";
 
@@ -81,6 +75,10 @@ export default function ResearchPage() {
   const [dmInput, setDmInput] = useState("");
   const [kwInput, setKwInput] = useState("");
 
+  // Dynamic ICP-driven niches/countries
+  const [availableNiches, setAvailableNiches] = useState<string[]>(FALLBACK_NICHES);
+  const [availableCountries, setAvailableCountries] = useState<string[]>(FALLBACK_COUNTRIES);
+
   const loadData = () => {
     setLoading(true);
     Promise.all([getResearchConfigs(), getResearchProblems()])
@@ -93,6 +91,12 @@ export default function ResearchPage() {
 
   useEffect(() => {
     loadData();
+    getICPProfile()
+      .then((r) => {
+        if (r.data.industries.length > 0) setAvailableNiches(r.data.industries);
+        if (r.data.countries.length > 0) setAvailableCountries(r.data.countries);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -206,7 +210,7 @@ export default function ResearchPage() {
       <PageHeader
         icon={Search}
         title="Research Hub"
-        subtitle="B2B pain points discovered by AI, updated weekly"
+        subtitle="Pain points discovered by AI for your target markets"
         actions={
           tab === "configs" ? (
             <Button onClick={openCreateForm} icon={<Plus size={14} />}>
@@ -222,7 +226,7 @@ export default function ResearchPage() {
           isActive={!!runningId}
           steps={[
             { label: "Connecting to research sources...", durationMs: 5000 },
-            { label: "Analyzing B2B problems...", durationMs: 45000 },
+            { label: "Analyzing industry problems...", durationMs: 45000 },
             { label: "Ranking results...", durationMs: 5000 },
           ]}
           className="mb-6"
@@ -300,7 +304,7 @@ export default function ResearchPage() {
                   Niches
                 </label>
                 <div className="flex flex-wrap gap-1.5">
-                  {NICHES.map((n) => (
+                  {availableNiches.map((n) => (
                     <button
                       key={n}
                       type="button"
@@ -327,7 +331,7 @@ export default function ResearchPage() {
                   Countries
                 </label>
                 <div className="flex flex-wrap gap-1.5">
-                  {COUNTRIES.map((c) => (
+                  {availableCountries.map((c) => (
                     <button
                       key={c}
                       type="button"
@@ -590,7 +594,7 @@ export default function ResearchPage() {
         <div>
           {/* Niche Filter */}
           <div className="flex gap-1.5 mb-6 flex-wrap">
-            {["all", ...NICHES].map((niche) => (
+            {["all", ...availableNiches].map((niche) => (
               <button
                 key={niche}
                 onClick={() => setSelectedNiche(niche)}
@@ -610,7 +614,7 @@ export default function ResearchPage() {
             <EmptyState
               icon={Search}
               title="No research data yet"
-              description="Create a config and run it to discover trending B2B problems."
+              description="Create a config and run it to discover trending problems in your target markets."
             />
           ) : (
             <div className="space-y-3">

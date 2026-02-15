@@ -285,6 +285,23 @@ export const updateResource = (id: string, data: FormData) =>
 
 export const deleteResource = (id: string) => api.delete(`/resources/${id}`);
 
+// --- ICP Profile ---
+export interface ICPProfile {
+  industries: string[];
+  countries: string[];
+  decision_makers: string[];
+  keywords: string[];
+  company_description: string;
+  business_model: string;
+  is_configured: boolean;
+}
+
+export const getICPProfile = () =>
+  api.get<ICPProfile>("/settings/icp");
+
+export const saveICPProfile = (data: Omit<ICPProfile, "is_configured">) =>
+  api.put<ICPProfile>("/settings/icp", data);
+
 // --- Onboarding ---
 export const checkOnboardingStatus = () => api.get("/onboarding/status");
 

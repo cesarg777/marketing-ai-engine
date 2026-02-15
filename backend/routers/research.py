@@ -130,6 +130,8 @@ def _run_research_background(
     org_id: str,
     decision_makers: list[str] | None = None,
     keywords: list[str] | None = None,
+    company_context: str = "",
+    business_model: str = "B2B",
 ):
     """Background task: run the research pipeline with its own DB session."""
     from backend.services.research_service import run_research_pipeline
@@ -145,6 +147,8 @@ def _run_research_background(
             org_id=org_id,
             decision_makers=decision_makers or [],
             keywords=keywords or [],
+            company_context=company_context,
+            business_model=business_model,
         )
         logger.info("Research pipeline completed: %d problems found", len(week.problems))
     except Exception:
@@ -164,10 +168,16 @@ def trigger_research(
 ):
     """Trigger a new weekly research run. Runs asynchronously in background."""
     from tools.config import Config
+    from backend.services.org_config_service import get_org_config
 
     week_start = data.week_start or date.today()
-    niches = data.niches or Config.DEFAULT_NICHES
-    countries = data.countries or Config.DEFAULT_COUNTRIES
+
+    # Use ICP profile as fallback for niches/countries
+    icp = get_org_config(db, org_id, "icp_profile") or {}
+    niches = data.niches or icp.get("industries") or Config.DEFAULT_NICHES
+    countries = data.countries or icp.get("countries") or Config.DEFAULT_COUNTRIES
+    company_context = icp.get("company_description", "")
+    business_model = icp.get("business_model", "B2B")
 
     existing = (
         db.query(ResearchWeek)
@@ -185,7 +195,10 @@ def trigger_research(
         db.commit()
         db.refresh(existing)
 
-    background_tasks.add_task(_run_research_background, week_start, niches, countries, org_id)
+    background_tasks.add_task(
+        _run_research_background, week_start, niches, countries, org_id,
+        company_context=company_context, business_model=business_model,
+    )
 
     return {
         "week_id": existing.id,
@@ -304,6 +317,8 @@ def run_config(
     org_id: str = Depends(get_current_org_id),
 ):
     """Trigger research using a saved config's niches/countries."""
+    from backend.services.org_config_service import get_org_config
+
     validate_uuid(config_id, "config_id")
     config = (
         db.query(ResearchConfig)
@@ -318,6 +333,11 @@ def run_config(
     countries = config.countries or []
     decision_makers = getattr(config, "decision_makers", None) or []
     keywords = getattr(config, "keywords", None) or []
+
+    # Fetch ICP for company context
+    icp = get_org_config(db, org_id, "icp_profile") or {}
+    company_context = icp.get("company_description", "")
+    business_model = icp.get("business_model", "B2B")
 
     existing_week = (
         db.query(ResearchWeek)
@@ -338,6 +358,7 @@ def run_config(
     background_tasks.add_task(
         _run_research_background, week_start, niches, countries, org_id,
         decision_makers=decision_makers, keywords=keywords,
+        company_context=company_context, business_model=business_model,
     )
 
     return {

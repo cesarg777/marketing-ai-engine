@@ -21,6 +21,8 @@ import {
   connectLinkedIn,
   getLinkedInStatus,
   disconnectLinkedIn,
+  getICPProfile,
+  saveICPProfile,
 } from "@/lib/api";
 import type { Language, OrgResource, ResourceType } from "@/types";
 import {
@@ -47,6 +49,7 @@ import {
   Circle,
   Eye,
   EyeOff,
+  Target,
 } from "lucide-react";
 import {
   PageHeader,
@@ -56,7 +59,19 @@ import {
   Toggle,
   Badge,
   Alert,
+  Textarea,
 } from "@/components/ui";
+
+const SUGGESTED_INDUSTRIES = [
+  "marketing", "tech", "hr", "consulting",
+  "finance", "healthcare", "legal", "saas",
+  "ecommerce", "education", "real-estate", "logistics",
+];
+const SUGGESTED_COUNTRIES = [
+  "US", "MX", "CO", "BR", "ES", "AR", "CL", "PE",
+  "GB", "DE", "FR", "CA",
+];
+const BUSINESS_MODELS = ["B2B", "B2C", "Both"];
 
 const RESOURCE_ICONS: Record<string, typeof Image> = {
   logo: Image,
@@ -113,6 +128,24 @@ export default function SettingsPage() {
   const [nlApiKey, setNlApiKey] = useState("");
   const [nlFromEmail, setNlFromEmail] = useState("newsletter@siete.com");
 
+  // ICP state
+  const [icpLoading, setIcpLoading] = useState(true);
+  const [icpSaving, setIcpSaving] = useState(false);
+  const [icpMsg, setIcpMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [icpProfile, setIcpProfile] = useState({
+    industries: [] as string[],
+    countries: [] as string[],
+    decision_makers: [] as string[],
+    keywords: [] as string[],
+    company_description: "",
+    business_model: "B2B",
+  });
+  const [icpIsConfigured, setIcpIsConfigured] = useState(false);
+  const [icpNewIndustry, setIcpNewIndustry] = useState("");
+  const [icpNewCountry, setIcpNewCountry] = useState("");
+  const [icpDmInput, setIcpDmInput] = useState("");
+  const [icpKwInput, setIcpKwInput] = useState("");
+
   const loadLanguages = () =>
     getLanguages().then((r) => setLanguages(r.data));
 
@@ -133,12 +166,70 @@ export default function SettingsPage() {
     getNewsletterStatus().then((r) => setNewsletterStat(r.data)).catch(() => {});
   };
 
+  const loadICPProfile = () => {
+    setIcpLoading(true);
+    getICPProfile()
+      .then((r) => {
+        const d = r.data;
+        setIcpProfile({
+          industries: d.industries,
+          countries: d.countries,
+          decision_makers: d.decision_makers,
+          keywords: d.keywords,
+          company_description: d.company_description,
+          business_model: d.business_model,
+        });
+        setIcpIsConfigured(d.is_configured);
+      })
+      .catch(() => {})
+      .finally(() => setIcpLoading(false));
+  };
+
+  const handleSaveICP = async () => {
+    setIcpSaving(true);
+    setIcpMsg(null);
+    try {
+      await saveICPProfile(icpProfile);
+      setIcpIsConfigured(true);
+      setIcpMsg({ type: "success", text: "ICP profile saved." });
+      setTimeout(() => setIcpMsg(null), 4000);
+    } catch {
+      setIcpMsg({ type: "error", text: "Failed to save ICP profile." });
+      setTimeout(() => setIcpMsg(null), 4000);
+    } finally {
+      setIcpSaving(false);
+    }
+  };
+
+  const toggleIcpPill = (field: "industries" | "countries", item: string) => {
+    setIcpProfile((prev) => ({
+      ...prev,
+      [field]: prev[field].includes(item)
+        ? prev[field].filter((x) => x !== item)
+        : [...prev[field], item],
+    }));
+  };
+
+  const addIcpTag = (field: "decision_makers" | "keywords", value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || icpProfile[field].includes(trimmed)) return;
+    setIcpProfile((prev) => ({ ...prev, [field]: [...prev[field], trimmed] }));
+  };
+
+  const removeIcpTag = (field: "industries" | "countries" | "decision_makers" | "keywords", index: number) => {
+    setIcpProfile((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index),
+    }));
+  };
+
   useEffect(() => {
     loadLanguages();
     loadResources();
     getResourceTypes().then((r) => setResourceTypes(r.data));
     loadHeygenStatus();
     loadChannelStatuses();
+    loadICPProfile();
   }, []);
 
   const handleToggleLanguage = async (lang: Language) => {
@@ -310,8 +401,318 @@ export default function SettingsPage() {
       <PageHeader
         icon={Settings}
         title="Settings"
-        subtitle="Configure languages, brand resources, and video providers"
+        subtitle="Configure your ICP, languages, brand resources, and integrations"
       />
+
+      {/* ICP Section */}
+      <FormSection
+        title="Ideal Customer Profile"
+        actions={
+          icpIsConfigured ? (
+            <Badge variant="success" size="sm">Configured</Badge>
+          ) : (
+            <Badge variant="default" size="sm">Not configured</Badge>
+          )
+        }
+        className="mb-6"
+      >
+        {icpMsg && (
+          <Alert variant={icpMsg.type} className="mb-4">
+            {icpMsg.text}
+          </Alert>
+        )}
+
+        {icpLoading ? (
+          <div className="py-8 text-center text-xs text-zinc-500">Loading...</div>
+        ) : (
+          <>
+            {/* Company Description */}
+            <Textarea
+              label="What does your company do?"
+              value={icpProfile.company_description}
+              onChange={(e) => setIcpProfile((prev) => ({ ...prev, company_description: e.target.value }))}
+              placeholder="e.g., We help SaaS companies automate their content marketing pipeline using AI."
+              helpText="Used to personalize AI-generated research and content for your business."
+            />
+
+            {/* Business Model */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 tracking-wide mb-1.5">
+                Business Model
+              </label>
+              <div className="flex gap-1.5">
+                {BUSINESS_MODELS.map((model) => (
+                  <button
+                    key={model}
+                    type="button"
+                    onClick={() => setIcpProfile((prev) => ({ ...prev, business_model: model }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      icpProfile.business_model === model
+                        ? "bg-indigo-600 text-white"
+                        : "bg-zinc-800/60 text-zinc-500 border border-[var(--border-subtle)] hover:text-zinc-300"
+                    }`}
+                  >
+                    {model}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Industries */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 tracking-wide mb-1.5">
+                Industries / Niches
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {SUGGESTED_INDUSTRIES.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => toggleIcpPill("industries", n)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
+                      icpProfile.industries.includes(n)
+                        ? "bg-indigo-600 text-white"
+                        : "bg-zinc-800/60 text-zinc-500 border border-[var(--border-subtle)] hover:text-zinc-300"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              {/* Custom industries not in suggested list */}
+              {icpProfile.industries.filter((i) => !SUGGESTED_INDUSTRIES.includes(i)).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {icpProfile.industries
+                    .filter((i) => !SUGGESTED_INDUSTRIES.includes(i))
+                    .map((ind, idx) => (
+                      <span
+                        key={ind}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-600/20 text-indigo-400 border border-indigo-600/30"
+                      >
+                        {ind}
+                        <button
+                          type="button"
+                          onClick={() => setIcpProfile((prev) => ({ ...prev, industries: prev.industries.filter((x) => x !== ind) }))}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={icpNewIndustry}
+                  onChange={(e) => setIcpNewIndustry(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const v = icpNewIndustry.trim().toLowerCase();
+                      if (v && !icpProfile.industries.includes(v)) {
+                        setIcpProfile((prev) => ({ ...prev, industries: [...prev.industries, v] }));
+                        setIcpNewIndustry("");
+                      }
+                    }
+                  }}
+                  placeholder="Add custom industry..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const v = icpNewIndustry.trim().toLowerCase();
+                    if (v && !icpProfile.industries.includes(v)) {
+                      setIcpProfile((prev) => ({ ...prev, industries: [...prev.industries, v] }));
+                      setIcpNewIndustry("");
+                    }
+                  }}
+                  icon={<Plus size={12} />}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            {/* Countries */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 tracking-wide mb-1.5">
+                Target Countries / Markets
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {SUGGESTED_COUNTRIES.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => toggleIcpPill("countries", c)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      icpProfile.countries.includes(c)
+                        ? "bg-indigo-600 text-white"
+                        : "bg-zinc-800/60 text-zinc-500 border border-[var(--border-subtle)] hover:text-zinc-300"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              {/* Custom countries not in suggested list */}
+              {icpProfile.countries.filter((c) => !SUGGESTED_COUNTRIES.includes(c)).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {icpProfile.countries
+                    .filter((c) => !SUGGESTED_COUNTRIES.includes(c))
+                    .map((country) => (
+                      <span
+                        key={country}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-600/20 text-indigo-400 border border-indigo-600/30"
+                      >
+                        {country}
+                        <button
+                          type="button"
+                          onClick={() => setIcpProfile((prev) => ({ ...prev, countries: prev.countries.filter((x) => x !== country) }))}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={icpNewCountry}
+                  onChange={(e) => setIcpNewCountry(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const v = icpNewCountry.trim().toUpperCase();
+                      if (v && !icpProfile.countries.includes(v)) {
+                        setIcpProfile((prev) => ({ ...prev, countries: [...prev.countries, v] }));
+                        setIcpNewCountry("");
+                      }
+                    }
+                  }}
+                  placeholder="Add country code (e.g. JP)..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const v = icpNewCountry.trim().toUpperCase();
+                    if (v && !icpProfile.countries.includes(v)) {
+                      setIcpProfile((prev) => ({ ...prev, countries: [...prev.countries, v] }));
+                      setIcpNewCountry("");
+                    }
+                  }}
+                  icon={<Plus size={12} />}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            {/* Decision Makers */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 tracking-wide mb-1.5">
+                Target Decision Makers
+              </label>
+              {icpProfile.decision_makers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {icpProfile.decision_makers.map((dm, i) => (
+                    <span
+                      key={dm}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-600/20 text-emerald-400 border border-emerald-600/30"
+                    >
+                      {dm}
+                      <button type="button" onClick={() => removeIcpTag("decision_makers", i)}>
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={icpDmInput}
+                  onChange={(e) => setIcpDmInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addIcpTag("decision_makers", icpDmInput);
+                      setIcpDmInput("");
+                    }
+                  }}
+                  placeholder="e.g., CMO, VP Marketing, Head of Growth..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { addIcpTag("decision_makers", icpDmInput); setIcpDmInput(""); }}
+                  icon={<Plus size={12} />}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            {/* Keywords */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 tracking-wide mb-1.5">
+                Priority Keywords / Topics
+              </label>
+              {icpProfile.keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {icpProfile.keywords.map((kw, i) => (
+                    <span
+                      key={kw}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-600/20 text-amber-400 border border-amber-600/30"
+                    >
+                      {kw}
+                      <button type="button" onClick={() => removeIcpTag("keywords", i)}>
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={icpKwInput}
+                  onChange={(e) => setIcpKwInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addIcpTag("keywords", icpKwInput);
+                      setIcpKwInput("");
+                    }
+                  }}
+                  placeholder="e.g., lead generation, inbound marketing..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { addIcpTag("keywords", icpKwInput); setIcpKwInput(""); }}
+                  icon={<Plus size={12} />}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            {/* Save */}
+            <div className="pt-2">
+              <Button onClick={handleSaveICP} loading={icpSaving}>
+                Save ICP Profile
+              </Button>
+            </div>
+          </>
+        )}
+      </FormSection>
 
       {/* Languages Section */}
       <FormSection

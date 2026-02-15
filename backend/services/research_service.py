@@ -16,6 +16,8 @@ def run_research_pipeline(
     org_id: str = "",
     decision_makers: list[str] | None = None,
     keywords: list[str] | None = None,
+    company_context: str = "",
+    business_model: str = "B2B",
 ) -> ResearchWeek:
     """Run the full research pipeline: scrape -> aggregate -> store."""
     niches = niches or Config.DEFAULT_NICHES
@@ -61,6 +63,8 @@ def run_research_pipeline(
                         country=country,
                         decision_makers=decision_makers,
                         keywords=keywords,
+                        company_context=company_context,
+                        business_model=business_model,
                     )
                 except Exception:
                     logger.exception("Aggregation failed for %s/%s", niche, country)

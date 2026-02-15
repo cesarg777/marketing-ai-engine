@@ -21,7 +21,7 @@ from tools.config import Config
 from backend.database import create_tables
 from backend.auth import get_current_user
 from backend.security import SecurityHeadersMiddleware, limiter
-from backend.routers import research, templates, content, amplification, metrics, languages, videos, onboarding, resources
+from backend.routers import research, templates, content, amplification, metrics, languages, videos, onboarding, resources, settings
 
 app = FastAPI(
     title="Marketing AI Engine",
@@ -63,6 +63,7 @@ app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
 app.include_router(onboarding.router, prefix="/api/onboarding", tags=["onboarding"])
 app.include_router(resources.router, prefix="/api/resources", tags=["resources"])
+app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 
 
 # Serve static files locally (in production, files are in Supabase Storage)

@@ -20,10 +20,20 @@ import anthropic
 
 from tools.config import Config
 
-SYSTEM_PROMPT = """You are a B2B market research analyst for Siete.
+def _build_system_prompt(business_model: str = "B2B", company_context: str = "") -> str:
+    """Build a dynamic system prompt based on org's ICP."""
+    prompt = f"""You are a {business_model} market research analyst.
 Analyze the provided raw data from multiple sources (Google Trends, Reddit,
-LinkedIn, news, blogs) and identify the top 10 most pressing B2B problems
-for the specified niche and country.
+LinkedIn, news, blogs) and identify the top 10 most pressing {business_model} problems
+for the specified niche and country."""
+
+    if company_context:
+        prompt += f"""
+
+Company context: {company_context}
+Focus on problems that are most relevant to this company's industry and audience."""
+
+    prompt += """
 
 For each problem, return a JSON object with these fields:
 - problem_title: Clear, concise title (max 80 chars)
@@ -40,6 +50,7 @@ For each problem, return a JSON object with these fields:
 Return a JSON array of exactly 10 problems, ordered by severity (highest first).
 Only include problems mentioned by at least 2 independent sources.
 If fewer than 10 problems meet the threshold, return as many as qualify."""
+    return prompt
 
 
 def aggregate(
@@ -48,6 +59,8 @@ def aggregate(
     country: str,
     decision_makers: list[str] | None = None,
     keywords: list[str] | None = None,
+    company_context: str = "",
+    business_model: str = "B2B",
 ) -> list[dict]:
     """Use Claude to analyze raw data and extract top 10 problems."""
     if not Config.ANTHROPIC_API_KEY:
@@ -74,12 +87,14 @@ def aggregate(
 Raw data from multiple sources:
 {data_str}
 
-Identify the top 10 B2B sales problems for this niche and country. Return ONLY valid JSON."""
+Identify the top 10 {business_model} sales problems for this niche and country. Return ONLY valid JSON."""
+
+    system_prompt = _build_system_prompt(business_model, company_context)
 
     response = client.messages.create(
         model=Config.ANTHROPIC_MODEL_RESEARCH,
         max_tokens=8000,
-        system=SYSTEM_PROMPT,
+        system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
     )
 

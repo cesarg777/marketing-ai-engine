@@ -8,7 +8,6 @@ from backend.database import get_db
 from backend.auth import get_current_org_id
 from backend.models.content import ContentItem, Publication
 from backend.models.metrics import ContentMetric
-from backend.models.config import OrgConfig
 from backend.schemas.content import ContentItemResponse, PublicationResponse
 
 router = APIRouter()
@@ -37,39 +36,14 @@ class BatchPublishRequest(BaseModel):
     channel: str = Field(..., max_length=30)
 
 
-# ─── Helpers ───
+# ─── Helpers (delegated to shared service) ───
 
-def _get_org_config(db: Session, org_id: str, key: str) -> dict | None:
-    config = db.query(OrgConfig).filter(
-        OrgConfig.org_id == org_id, OrgConfig.key == key,
-    ).first()
-    if config and isinstance(config.value, dict):
-        return config.value
-    return None
-
-
-def _upsert_org_config(db: Session, org_id: str, key: str, value: dict):
-    existing = db.query(OrgConfig).filter(
-        OrgConfig.org_id == org_id, OrgConfig.key == key,
-    ).first()
-    if existing:
-        existing.value = value
-    else:
-        db.add(OrgConfig(org_id=org_id, key=key, value=value))
-    db.commit()
-
-
-def _delete_org_config(db: Session, org_id: str, key: str):
-    config = db.query(OrgConfig).filter(
-        OrgConfig.org_id == org_id, OrgConfig.key == key,
-    ).first()
-    if config:
-        db.delete(config)
-        db.commit()
-
-
-def _mask(value: str) -> str:
-    return "****" + value[-4:] if len(value) > 4 else "****"
+from backend.services.org_config_service import (
+    get_org_config as _get_org_config,
+    upsert_org_config as _upsert_org_config,
+    delete_org_config as _delete_org_config,
+    mask_secret as _mask,
+)
 
 
 # ─── Content list for Amplify page ───
