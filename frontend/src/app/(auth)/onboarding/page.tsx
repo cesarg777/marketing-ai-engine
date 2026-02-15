@@ -92,7 +92,7 @@ export default function OnboardingPage() {
           <div className="text-xs text-zinc-600 bg-zinc-900/50 border border-[var(--border-subtle)] rounded-lg px-3 py-2">
             Your workspace URL:{" "}
             <span className="text-zinc-400">
-              siete.app/<span className="text-indigo-400">{orgSlug}</span>
+              app/<span className="text-indigo-400">{orgSlug}</span>
             </span>
           </div>
         )}

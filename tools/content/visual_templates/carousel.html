@@ -6,6 +6,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --brand-accent: {{ brand.accent_color }};
+  }
   body {
     width: 1080px;
     font-family: 'Montserrat', sans-serif;
@@ -51,6 +54,11 @@
     letter-spacing: 6px;
     font-size: 13px;
   }
+  .slide-header .logo-img {
+    max-height: 28px;
+    max-width: 160px;
+    object-fit: contain;
+  }
 
   /* Footer bar (all slides) */
   .slide-footer {
@@ -93,7 +101,7 @@
   .cover-accent-line {
     width: 80px;
     height: 5px;
-    background: #0066FF;
+    background: var(--brand-accent);
     border-radius: 3px;
     margin-top: 40px;
   }
@@ -109,7 +117,7 @@
   .slide-number {
     font-size: 72px;
     font-weight: 900;
-    color: #0066FF;
+    color: var(--brand-accent);
     line-height: 1;
     margin-bottom: 24px;
   }
@@ -130,7 +138,7 @@
   .slide-divider {
     width: 60px;
     height: 4px;
-    background: #0066FF;
+    background: var(--brand-accent);
     border-radius: 2px;
     margin-top: 32px;
   }
@@ -154,7 +162,7 @@
   .cta-button {
     margin-top: 48px;
     display: inline-block;
-    background: #0066FF;
+    background: var(--brand-accent);
     color: #FFF;
     padding: 20px 48px;
     border-radius: 12px;
@@ -177,9 +185,13 @@
   <!-- Slide 1: Cover -->
   <div class="slide">
     <div class="slide-header">
-      <span>B2B LEAD GENERATION</span>
-      <span class="logo">S I E 7 E</span>
-      <span>WEARESIETE.COM</span>
+      <span>{{ title[:30] | upper }}</span>
+      {% if brand.logo_url %}
+      <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+      {% else %}
+      <span class="logo">{{ brand.name | upper }}</span>
+      {% endif %}
+      {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
     </div>
     <div class="cover-content">
       <h1 class="cover-title">{{ title }}</h1>
@@ -198,9 +210,13 @@
   {% for slide in slides %}
   <div class="slide">
     <div class="slide-header">
-      <span>B2B LEAD GENERATION</span>
-      <span class="logo">S I E 7 E</span>
-      <span>WEARESIETE.COM</span>
+      <span>{{ title[:30] | upper }}</span>
+      {% if brand.logo_url %}
+      <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+      {% else %}
+      <span class="logo">{{ brand.name | upper }}</span>
+      {% endif %}
+      {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
     </div>
     <div class="content-slide-inner">
       <div class="slide-number">{{ "%02d" | format(loop.index) }}</div>
@@ -218,14 +234,20 @@
   <!-- CTA Slide -->
   <div class="slide">
     <div class="slide-header">
-      <span>B2B LEAD GENERATION</span>
-      <span class="logo">S I E 7 E</span>
-      <span>WEARESIETE.COM</span>
+      <span>{{ title[:30] | upper }}</span>
+      {% if brand.logo_url %}
+      <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+      {% else %}
+      <span class="logo">{{ brand.name | upper }}</span>
+      {% endif %}
+      {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
     </div>
     <div class="cta-content">
       <p class="cta-text">{{ cta }}</p>
-      <div class="cta-button">WEARESIETE.COM</div>
-      <p class="cta-website">S I E 7 E</p>
+      {% if brand.website %}
+      <div class="cta-button">{{ brand.website | upper }}</div>
+      {% endif %}
+      <p class="cta-website">{{ brand.name | upper }}</p>
     </div>
     <div class="slide-footer">
       <span>{{ "%02d" | format(slides|length + 2) }} / {{ slides|length + 2 }}</span>

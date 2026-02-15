@@ -6,6 +6,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --brand-accent: {{ brand.accent_color }};
+  }
   body {
     width: 1080px;
     height: 1350px;
@@ -34,6 +37,11 @@
     letter-spacing: 6px;
     font-size: 13px;
   }
+  .header .logo-img {
+    max-height: 28px;
+    max-width: 160px;
+    object-fit: contain;
+  }
 
   /* Title */
   .title-section {
@@ -47,7 +55,7 @@
     color: #1A1A1A;
   }
   .title-text .highlight {
-    background: #0066FF;
+    background: var(--brand-accent);
     color: #FFF;
     padding: 4px 12px;
     border-radius: 6px;
@@ -74,14 +82,14 @@
     position: relative;
   }
   .step:nth-child(even) {
-    border-color: #0066FF;
-    background: #F8FBFF;
+    border-color: var(--brand-accent);
+    background: color-mix(in srgb, var(--brand-accent) 4%, white);
   }
 
   .step-number {
     font-size: 48px;
     font-weight: 900;
-    color: #0066FF;
+    color: var(--brand-accent);
     line-height: 1;
     min-width: 60px;
   }
@@ -114,7 +122,7 @@
     top: 340px;
     bottom: 140px;
     width: 3px;
-    background: linear-gradient(to bottom, #0066FF, #E0E0E0);
+    background: linear-gradient(to bottom, var(--brand-accent), #E0E0E0);
     z-index: 0;
     border-radius: 2px;
   }
@@ -140,6 +148,11 @@
     color: #1A1A1A;
     letter-spacing: 6px;
   }
+  .footer .logo-img {
+    max-height: 24px;
+    max-width: 140px;
+    object-fit: contain;
+  }
 
   {{ css_override | safe }}
 </style>
@@ -147,9 +160,13 @@
 <body>
   <!-- Header -->
   <div class="header">
-    <span>B2B LEAD GENERATION</span>
-    <span class="logo">S I E 7 E</span>
-    <span>WEARESIETE.COM</span>
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.logo_url %}
+    <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+    {% else %}
+    <span class="logo">{{ brand.name | upper }}</span>
+    {% endif %}
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
   </div>
 
   <!-- Title -->
@@ -175,8 +192,12 @@
 
   <!-- Footer -->
   <div class="footer">
-    <span>WEARESIETE.COM</span>
-    <span class="logo">S I E 7 E</span>
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.logo_url %}
+    <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+    {% else %}
+    <span class="logo">{{ brand.name | upper }}</span>
+    {% endif %}
   </div>
 </body>
 </html>

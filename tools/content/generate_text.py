@@ -22,7 +22,7 @@ from tools.config import Config
 
 logger = logging.getLogger(__name__)
 
-BRAND_SYSTEM_PROMPT = """You are the content creation engine for Siete, a B2B company.
+DEFAULT_BRAND_SYSTEM_PROMPT = """You are a content creation engine for a company.
 
 Your writing style is:
 - Professional but approachable — never stiff or corporate-speak
@@ -31,7 +31,48 @@ Your writing style is:
 - Adapted to the target language and cultural context (not just translated — localized)
 - Engaging hooks that stop the scroll
 
-Always maintain Siete's brand voice regardless of language or content type."""
+Always maintain the brand voice regardless of language or content type."""
+
+
+def _build_brand_prompt(org_name: str = "", brand_voice: dict | None = None) -> str:
+    """Build the system prompt dynamically from org brand info."""
+    if not org_name and not brand_voice:
+        return DEFAULT_BRAND_SYSTEM_PROMPT
+
+    parts = []
+    if org_name:
+        parts.append(f"You are the content creation engine for {org_name}.")
+    else:
+        parts.append("You are a content creation engine for a company.")
+
+    # Use custom brand voice instructions if provided
+    if brand_voice and isinstance(brand_voice, dict):
+        tone = brand_voice.get("tone", "")
+        style = brand_voice.get("style", "")
+        guidelines = brand_voice.get("guidelines", "")
+        if tone or style or guidelines:
+            parts.append("\nBrand voice:")
+            if tone:
+                parts.append(f"- Tone: {tone}")
+            if style:
+                parts.append(f"- Style: {style}")
+            if guidelines:
+                parts.append(f"- Guidelines: {guidelines}")
+
+    parts.append("""
+Your writing style is:
+- Professional but approachable — never stiff or corporate-speak
+- Data-driven with actionable insights that teams can implement immediately
+- Clear and concise, no fluff or filler
+- Adapted to the target language and cultural context (not just translated — localized)
+- Engaging hooks that stop the scroll""")
+
+    if org_name:
+        parts.append(f"\nAlways maintain {org_name}'s brand voice regardless of language or content type.")
+    else:
+        parts.append("\nAlways maintain the brand voice regardless of language or content type.")
+
+    return "\n".join(parts)
 
 
 def _repair_json(raw: str) -> dict:
@@ -187,6 +228,8 @@ def generate(
     additional_instructions: str = "",
     reference_urls: list[dict] | None = None,
     reference_files: list[dict] | None = None,
+    org_name: str = "",
+    brand_voice: dict | None = None,
 ) -> dict:
     """Generate structured content using Claude API with tool_use for reliable output."""
     if not Config.ANTHROPIC_API_KEY:
@@ -198,7 +241,7 @@ def generate(
     )
 
     # Build the system prompt
-    system = BRAND_SYSTEM_PROMPT
+    system = _build_brand_prompt(org_name=org_name, brand_voice=brand_voice)
     if template_system_prompt:
         system += f"\n\nTemplate-specific instructions:\n{template_system_prompt}"
     if reference_urls:

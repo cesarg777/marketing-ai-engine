@@ -327,6 +327,18 @@ export const getICPProfile = () =>
 export const saveICPProfile = (data: Omit<ICPProfile, "is_configured">) =>
   api.put<ICPProfile>("/settings/icp", data);
 
+// --- Brand Settings ---
+interface BrandSettings {
+  website: string;
+  accent_color: string;
+}
+
+export const getBrandSettings = () =>
+  api.get<BrandSettings>("/settings/brand");
+
+export const saveBrandSettings = (data: BrandSettings) =>
+  api.put<BrandSettings>("/settings/brand", data);
+
 // --- Onboarding ---
 export const checkOnboardingStatus = () => api.get("/onboarding/status");
 

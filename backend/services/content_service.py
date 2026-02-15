@@ -5,6 +5,7 @@ from backend.models.content import ContentItem, Publication
 from backend.models.template import ContentTemplate
 from backend.models.template_asset import TemplateAsset
 from backend.models.research import ResearchProblem
+from backend.models.organization import Organization
 
 
 def generate_content_item(
@@ -32,6 +33,11 @@ def generate_content_item(
             "suggested_angles": problem.suggested_angles,
         }
 
+    # Fetch org info for brand context
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    org_name = org.name if org else ""
+    brand_voice = org.brand_voice if org and isinstance(org.brand_voice, dict) else None
+
     # Fetch reference file assets for this template (images/PDFs for Claude vision)
     ref_assets = (
         db.query(TemplateAsset)
@@ -58,6 +64,8 @@ def generate_content_item(
         additional_instructions=additional_instructions,
         reference_urls=template.reference_urls or [],
         reference_files=reference_files,
+        org_name=org_name,
+        brand_voice=brand_voice,
     )
 
     item = ContentItem(

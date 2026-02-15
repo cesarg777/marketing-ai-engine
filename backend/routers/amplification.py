@@ -24,7 +24,7 @@ class WebflowConnectRequest(BaseModel):
 
 class NewsletterConnectRequest(BaseModel):
     api_key: str = Field(..., min_length=5)
-    from_email: str = Field(default="newsletter@siete.com")
+    from_email: str = Field(default="noreply@example.com")
 
 
 class LinkedInConnectRequest(BaseModel):
@@ -176,7 +176,7 @@ def send_newsletter(
     from backend.services.amplification_service import send_newsletter_email
     result = send_newsletter_email(
         api_key=config["api_key"],
-        from_email=config.get("from_email", "newsletter@siete.com"),
+        from_email=config.get("from_email", "noreply@example.com"),
         subject=subject,
         html=html,
     )

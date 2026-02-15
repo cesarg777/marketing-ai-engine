@@ -26,6 +26,8 @@ import {
   disconnectGA4,
   getICPProfile,
   saveICPProfile,
+  getBrandSettings,
+  saveBrandSettings,
 } from "@/lib/api";
 import type { Language, OrgResource, ResourceType } from "@/types";
 import {
@@ -130,7 +132,7 @@ export default function SettingsPage() {
   const [wfToken, setWfToken] = useState("");
   const [wfSiteId, setWfSiteId] = useState("");
   const [nlApiKey, setNlApiKey] = useState("");
-  const [nlFromEmail, setNlFromEmail] = useState("newsletter@siete.com");
+  const [nlFromEmail, setNlFromEmail] = useState("");
 
   // ICP state
   const [icpLoading, setIcpLoading] = useState(true);
@@ -157,6 +159,39 @@ export default function SettingsPage() {
   const [ga4Json, setGa4Json] = useState("");
   const [ga4PropertyId, setGa4PropertyId] = useState("");
   const [ga4Msg, setGa4Msg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Brand settings state
+  const [brandWebsite, setBrandWebsite] = useState("");
+  const [brandAccentColor, setBrandAccentColor] = useState("#6366f1");
+  const [brandLoading, setBrandLoading] = useState(true);
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandMsg, setBrandMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const loadBrandSettings = () => {
+    setBrandLoading(true);
+    getBrandSettings()
+      .then((r) => {
+        setBrandWebsite(r.data.website || "");
+        setBrandAccentColor(r.data.accent_color || "#6366f1");
+      })
+      .catch(() => {})
+      .finally(() => setBrandLoading(false));
+  };
+
+  const handleSaveBrand = async () => {
+    setBrandSaving(true);
+    setBrandMsg(null);
+    try {
+      await saveBrandSettings({ website: brandWebsite, accent_color: brandAccentColor });
+      setBrandMsg({ type: "success", text: "Brand settings saved. New renders will use these values." });
+      setTimeout(() => setBrandMsg(null), 4000);
+    } catch {
+      setBrandMsg({ type: "error", text: "Failed to save brand settings." });
+      setTimeout(() => setBrandMsg(null), 4000);
+    } finally {
+      setBrandSaving(false);
+    }
+  };
 
   const loadLanguages = () =>
     getLanguages().then((r) => setLanguages(r.data));
@@ -286,6 +321,7 @@ export default function SettingsPage() {
     loadChannelStatuses();
     loadICPProfile();
     loadGA4Status();
+    loadBrandSettings();
   }, []);
 
   const handleToggleLanguage = async (lang: Language) => {
@@ -459,6 +495,77 @@ export default function SettingsPage() {
         title="Settings"
         subtitle="Configure your ICP, languages, brand resources, and integrations"
       />
+
+      {/* Brand Settings Section */}
+      <FormSection
+        title="Brand Settings"
+        actions={
+          brandWebsite || brandAccentColor !== "#6366f1" ? (
+            <Badge variant="success" size="sm">Configured</Badge>
+          ) : (
+            <Badge variant="default" size="sm">Not configured</Badge>
+          )
+        }
+        className="mb-6"
+      >
+        {brandMsg && (
+          <Alert variant={brandMsg.type} className="mb-4">
+            {brandMsg.text}
+          </Alert>
+        )}
+
+        {brandLoading ? (
+          <div className="py-8 text-center text-xs text-zinc-500">Loading...</div>
+        ) : (
+          <>
+            <p className="text-xs text-zinc-500 mb-4">
+              These settings are used in rendered visual assets (carousels, infographics, etc.) and AI content generation.
+              Upload your logo in Brand Resources below.
+            </p>
+
+            <Input
+              label="Website URL"
+              value={brandWebsite}
+              onChange={(e) => setBrandWebsite(e.target.value)}
+              placeholder="e.g., yourcompany.com"
+              helpText="Shown in headers and footers of rendered visual assets."
+            />
+
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 tracking-wide mb-1.5">
+                Brand Accent Color
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={brandAccentColor}
+                  onChange={(e) => setBrandAccentColor(e.target.value)}
+                  className="w-10 h-10 rounded-lg border border-[var(--border-subtle)] cursor-pointer bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={brandAccentColor}
+                  onChange={(e) => setBrandAccentColor(e.target.value)}
+                  className="w-28 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg px-3 py-2.5 text-sm text-zinc-200 font-mono"
+                />
+                <div
+                  className="flex-1 h-10 rounded-lg border border-[var(--border-subtle)]"
+                  style={{ background: `linear-gradient(135deg, ${brandAccentColor}, ${brandAccentColor}88)` }}
+                />
+              </div>
+              <p className="text-[11px] text-zinc-600 mt-1">
+                Used for accent elements, buttons, and highlights in rendered content.
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <Button onClick={handleSaveBrand} loading={brandSaving}>
+                Save Brand Settings
+              </Button>
+            </div>
+          </>
+        )}
+      </FormSection>
 
       {/* ICP Section */}
       <FormSection

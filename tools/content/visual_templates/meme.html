@@ -6,6 +6,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --brand-accent: {{ brand.accent_color }};
+  }
   body {
     width: 1080px;
     height: 1350px;
@@ -45,6 +48,11 @@
     color: #FFF;
     letter-spacing: 6px;
     font-size: 13px;
+  }
+  .header .logo-img {
+    max-height: 28px;
+    max-width: 160px;
+    object-fit: contain;
   }
 
   /* Top text bubble */
@@ -128,6 +136,11 @@
     color: #FFF;
     letter-spacing: 6px;
   }
+  .footer .logo-img {
+    max-height: 24px;
+    max-width: 140px;
+    object-fit: contain;
+  }
 
   {{ css_override | safe }}
 </style>
@@ -135,9 +148,13 @@
 <body>
   <!-- Header -->
   <div class="header">
-    <span>B2B LEAD GENERATION</span>
-    <span class="logo">S I E 7 E</span>
-    <span>WEARESIETE.COM</span>
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.logo_url %}
+    <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+    {% else %}
+    <span class="logo">{{ brand.name | upper }}</span>
+    {% endif %}
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
   </div>
 
   <!-- Top text -->
@@ -160,9 +177,13 @@
 
   <!-- Footer -->
   <div class="footer">
-    <span>B2B LEAD GENERATION</span>
-    <span class="logo">S I E 7 E</span>
-    <span>WEARESIETE.COM</span>
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.logo_url %}
+    <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+    {% else %}
+    <span class="logo">{{ brand.name | upper }}</span>
+    {% endif %}
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
   </div>
 </body>
 </html>

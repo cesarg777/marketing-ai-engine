@@ -6,6 +6,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --brand-accent: {{ brand.accent_color }};
+  }
   body {
     width: 1080px;
     height: 1350px;
@@ -34,13 +37,18 @@
     color: #FFF;
     letter-spacing: 6px;
   }
+  .header .logo-img {
+    max-height: 30px;
+    max-width: 160px;
+    object-fit: contain;
+  }
 
   /* Meet the Team badge */
   .badge {
     position: absolute;
     top: 100px;
     right: 48px;
-    background: #0066FF;
+    background: var(--brand-accent);
     color: #FFF;
     padding: 10px 24px;
     border-radius: 6px;
@@ -57,7 +65,7 @@
     left: 48px;
     width: 64px;
     height: 64px;
-    border: 3px solid #0066FF;
+    border: 3px solid var(--brand-accent);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -66,7 +74,7 @@
   .arrow-icon::after {
     content: "→";
     font-size: 28px;
-    color: #0066FF;
+    color: var(--brand-accent);
     font-weight: 700;
   }
 
@@ -80,7 +88,7 @@
   }
   .quote-mark {
     font-size: 80px;
-    color: #0066FF;
+    color: var(--brand-accent);
     line-height: 0.8;
     font-weight: 900;
     margin-bottom: 16px;
@@ -108,7 +116,7 @@
     right: 0;
     width: 480px;
     height: 420px;
-    background: linear-gradient(135deg, #0044AA 0%, #0066FF 100%);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--brand-accent) 70%, black) 0%, var(--brand-accent) 100%);
     opacity: 0.3;
     border-radius: 20px 0 0 0;
   }
@@ -130,7 +138,7 @@
   }
   .person-name {
     display: inline-block;
-    background: #0066FF;
+    background: var(--brand-accent);
     color: #FFF;
     padding: 12px 28px;
     border-radius: 8px;
@@ -169,6 +177,11 @@
     color: #FFF;
     letter-spacing: 6px;
   }
+  .footer .logo-img {
+    max-height: 24px;
+    max-width: 140px;
+    object-fit: contain;
+  }
 
   {{ css_override | safe }}
 </style>
@@ -176,9 +189,13 @@
 <body>
   <!-- Header -->
   <div class="header">
-    <span>B2B LEAD GENERATION</span>
-    <span class="logo">S I E 7 E</span>
-    <span>WEARESIETE.COM</span>
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.logo_url %}
+    <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+    {% else %}
+    <span class="logo">{{ brand.name | upper }}</span>
+    {% endif %}
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
   </div>
 
   <!-- Badge -->
@@ -207,8 +224,12 @@
 
   <!-- Footer -->
   <div class="footer">
-    <span>WEARESIETE.COM</span>
-    <span class="logo">S I E 7 E</span>
+    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.logo_url %}
+    <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+    {% else %}
+    <span class="logo">{{ brand.name | upper }}</span>
+    {% endif %}
   </div>
 </body>
 </html>

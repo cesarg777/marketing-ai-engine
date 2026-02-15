@@ -177,6 +177,7 @@ def render(
     visual_layout_override: str | None = None,
     visual_css_override: str | None = None,
     template_assets: list[dict] | None = None,
+    brand_context: dict | None = None,
 ) -> dict:
     """Render content_data into a visual asset (PNG or PDF).
 
@@ -186,6 +187,8 @@ def render(
         content_id: Optional ID for output filename (auto-generated if None)
         visual_layout_override: Optional custom HTML template (overrides file)
         visual_css_override: Optional custom CSS (injected into template)
+        template_assets: Optional list of template asset dicts (asset_type, file_url)
+        brand_context: Optional dict with org brand info (name, logo_url, website, accent_color)
 
     Returns:
         dict with keys: file_path, rendered_html, format
@@ -228,11 +231,22 @@ def render(
         for a in template_assets:
             assets_dict[a.get("asset_type", "")] = a.get("file_url", "")
 
+    # Build brand dict with defaults for templates
+    brand = {
+        "name": "",
+        "logo_url": "",
+        "website": "",
+        "accent_color": "#0066FF",
+    }
+    if brand_context:
+        brand.update({k: v for k, v in brand_context.items() if v})
+
     try:
         rendered_html = template.render(
             **content_data,
             css_override=visual_css_override or "",
             assets=assets_dict,
+            brand=brand,
         )
     except Exception as e:
         raise ValueError(

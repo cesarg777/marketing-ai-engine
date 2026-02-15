@@ -18,7 +18,19 @@ ICP_CONFIG_KEY = "icp_profile"
 GA4_CONFIG_KEY = "ga4_config"
 
 
-# ─── Schemas ───
+# ─── Brand Schemas ───
+
+class BrandSettingsRequest(BaseModel):
+    website: str = Field(default="", max_length=200)
+    accent_color: str = Field(default="", max_length=20)
+
+
+class BrandSettingsResponse(BaseModel):
+    website: str
+    accent_color: str
+
+
+# ─── ICP Schemas ───
 
 class ICPProfileRequest(BaseModel):
     industries: list[str] = Field(default_factory=list)
@@ -39,7 +51,51 @@ class ICPProfileResponse(BaseModel):
     is_configured: bool
 
 
-# ─── Endpoints ───
+# ─── Brand Endpoints ───
+
+@router.get("/brand", response_model=BrandSettingsResponse)
+def get_brand_settings(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Get the org's brand settings (website, accent_color) from Organization.brand_voice."""
+    from backend.models.organization import Organization
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    bv = org.brand_voice if isinstance(org.brand_voice, dict) else {}
+    return BrandSettingsResponse(
+        website=bv.get("website", ""),
+        accent_color=bv.get("accent_color", ""),
+    )
+
+
+@router.put("/brand", response_model=BrandSettingsResponse)
+def save_brand_settings(
+    data: BrandSettingsRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Save the org's brand settings (website, accent_color) into Organization.brand_voice."""
+    from backend.models.organization import Organization
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    bv = org.brand_voice if isinstance(org.brand_voice, dict) else {}
+    bv["website"] = data.website.strip()
+    bv["accent_color"] = data.accent_color.strip()
+    org.brand_voice = bv
+    db.commit()
+    db.refresh(org)
+
+    return BrandSettingsResponse(
+        website=bv.get("website", ""),
+        accent_color=bv.get("accent_color", ""),
+    )
+
+
+# ─── ICP Endpoints ───
 
 @router.get("/icp", response_model=ICPProfileResponse)
 def get_icp_profile(
