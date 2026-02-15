@@ -21,6 +21,7 @@ const CONTENT_TYPES = [
   { value: "meet_the_team", label: "Meet the Team" },
   { value: "case_study", label: "Case Study" },
   { value: "meme", label: "Meme" },
+  { value: "infografia", label: "Infografía" },
   { value: "avatar_video", label: "Avatar Video" },
   { value: "linkedin_post", label: "LinkedIn Post" },
   { value: "blog_post", label: "Blog Post" },
@@ -28,6 +29,52 @@ const CONTENT_TYPES = [
 ];
 
 const FIELD_TYPES = ["text", "textarea", "number", "url", "list", "image"];
+
+/** Default field structures for visual content types.
+ *  Auto-populated when user selects a content_type — editable afterwards. */
+const DEFAULT_STRUCTURES: Record<string, FieldDef[]> = {
+  carousel: [
+    { name: "title", type: "text", required: true, description: "Carousel title / hook" },
+    { name: "slides", type: "textarea", required: true, description: "5-10 slides with headline + body each" },
+    { name: "cta", type: "text", required: true, description: "Call to action on final slide" },
+    { name: "social_caption", type: "textarea", required: true, description: "LinkedIn/Instagram caption" },
+    { name: "social_hashtags", type: "text", required: true, description: "3-5 relevant hashtags" },
+  ],
+  meet_the_team: [
+    { name: "title", type: "text", required: true, description: "Post title" },
+    { name: "person_name", type: "text", required: true, description: "Team member name" },
+    { name: "role", type: "text", required: true, description: "Job title / role" },
+    { name: "quote", type: "textarea", required: true, description: "Personal or professional quote" },
+    { name: "bio", type: "textarea", required: true, description: "Short bio (max 300 chars)" },
+    { name: "social_caption", type: "textarea", required: true, description: "LinkedIn/Instagram caption" },
+    { name: "social_hashtags", type: "text", required: true, description: "3-5 relevant hashtags" },
+  ],
+  case_study: [
+    { name: "title", type: "text", required: true, description: "Case study title" },
+    { name: "client", type: "text", required: true, description: "Client name or description" },
+    { name: "challenge", type: "textarea", required: true, description: "The problem the client faced" },
+    { name: "solution", type: "textarea", required: true, description: "How it was solved" },
+    { name: "results", type: "textarea", required: true, description: "Quantifiable results" },
+    { name: "key_metrics", type: "textarea", required: true, description: "Key metrics with values" },
+    { name: "social_caption", type: "textarea", required: true, description: "LinkedIn caption" },
+    { name: "social_hashtags", type: "text", required: true, description: "3-5 relevant hashtags" },
+  ],
+  meme: [
+    { name: "title", type: "text", required: true, description: "Meme title (internal)" },
+    { name: "top_text", type: "text", required: true, description: "Top text of the meme" },
+    { name: "bottom_text", type: "text", required: true, description: "Bottom text / punchline" },
+    { name: "image_prompt", type: "text", required: true, description: "Prompt for the meme image" },
+    { name: "context", type: "text", required: false, description: "Why this is relatable" },
+    { name: "social_caption", type: "textarea", required: true, description: "Caption for social post" },
+    { name: "social_hashtags", type: "text", required: true, description: "3-5 relevant hashtags" },
+  ],
+  infografia: [
+    { name: "title", type: "text", required: true, description: "Infographic title" },
+    { name: "slides", type: "textarea", required: true, description: "Steps/sections with headline + body" },
+    { name: "social_caption", type: "textarea", required: true, description: "LinkedIn/Instagram caption" },
+    { name: "social_hashtags", type: "text", required: true, description: "3-5 relevant hashtags" },
+  ],
+};
 
 /** Sanitize a field name to snake_case (only a-z, 0-9, underscores). */
 const sanitizeFieldName = (raw: string) =>
@@ -67,6 +114,16 @@ export default function NewTemplatePage() {
         .replace(/^-|-$/g, "")
     );
   }, [name]);
+
+  // Auto-populate default fields when content type changes
+  useEffect(() => {
+    const defaults = DEFAULT_STRUCTURES[contentType];
+    if (defaults) {
+      setFields(defaults.map((f) => ({ ...f })));
+    } else {
+      setFields([{ name: "", type: "text", required: true, description: "" }]);
+    }
+  }, [contentType]);
 
   const addField = () => {
     setFields([...fields, { name: "", type: "text", required: false, description: "" }]);
@@ -207,6 +264,12 @@ export default function NewTemplatePage() {
             />
           </div>
 
+          {DEFAULT_STRUCTURES[contentType] && (
+            <p className="text-xs text-indigo-400/70 -mt-2">
+              Default fields for this type have been loaded below. You can edit or remove them.
+            </p>
+          )}
+
           <Textarea
             label="Description"
             value={description}
@@ -234,43 +297,52 @@ export default function NewTemplatePage() {
             {fields.map((f, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-[1fr_120px_auto_auto] gap-3 items-center bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-3"
+                className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-3 space-y-2"
               >
+                <div className="grid grid-cols-[1fr_120px_auto_auto] gap-3 items-center">
+                  <input
+                    type="text"
+                    value={f.name}
+                    onChange={(e) => updateField(idx, "name", sanitizeFieldName(e.target.value))}
+                    placeholder="field_name"
+                    className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors"
+                  />
+                  <select
+                    value={f.type}
+                    onChange={(e) => updateField(idx, "type", e.target.value)}
+                    className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors appearance-none"
+                  >
+                    {FIELD_TYPES.map((ft) => (
+                      <option key={ft} value={ft}>
+                        {ft}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="flex items-center gap-1.5 text-xs text-zinc-500 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={f.required}
+                      onChange={(e) => updateField(idx, "required", e.target.checked)}
+                      className="rounded border-zinc-600 bg-zinc-900"
+                    />
+                    Req
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => removeField(idx)}
+                    className="p-1 rounded-md hover:bg-red-500/10 text-zinc-600 hover:text-red-400 transition-colors"
+                    title="Remove field"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
                 <input
                   type="text"
-                  value={f.name}
-                  onChange={(e) => updateField(idx, "name", sanitizeFieldName(e.target.value))}
-                  placeholder="field_name"
-                  className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors"
+                  value={f.description}
+                  onChange={(e) => updateField(idx, "description", e.target.value)}
+                  placeholder="Field description (optional)"
+                  className="w-full bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1 text-xs text-zinc-400 focus:outline-none focus:border-[var(--border-focus)] transition-colors"
                 />
-                <select
-                  value={f.type}
-                  onChange={(e) => updateField(idx, "type", e.target.value)}
-                  className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors appearance-none"
-                >
-                  {FIELD_TYPES.map((ft) => (
-                    <option key={ft} value={ft}>
-                      {ft}
-                    </option>
-                  ))}
-                </select>
-                <label className="flex items-center gap-1.5 text-xs text-zinc-500 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={f.required}
-                    onChange={(e) => updateField(idx, "required", e.target.checked)}
-                    className="rounded border-zinc-600 bg-zinc-900"
-                  />
-                  Req
-                </label>
-                <button
-                  type="button"
-                  onClick={() => removeField(idx)}
-                  className="p-1 rounded-md hover:bg-red-500/10 text-zinc-600 hover:text-red-400 transition-colors"
-                  title="Remove field"
-                >
-                  <Trash2 size={13} />
-                </button>
               </div>
             ))}
           </div>
