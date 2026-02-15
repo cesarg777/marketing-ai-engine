@@ -42,10 +42,6 @@ frontend_url = (Config.FRONTEND_URL or "").strip().rstrip("/")
 if frontend_url and frontend_url not in cors_origins:
     cors_origins.append(frontend_url)
 
-logger_startup = logging.getLogger(__name__)
-logger_startup.info("CORS origins: %s", cors_origins)
-logger_startup.info("FRONTEND_URL raw: %r", Config.FRONTEND_URL)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -99,16 +95,7 @@ def on_startup():
 
 @app.get("/api/health")
 def health_check():
-    import os
-    return {
-        "status": "ok",
-        "version": "0.1.0",
-        "cors_origins": cors_origins,
-        "frontend_url_config": Config.FRONTEND_URL,
-        "frontend_url_env": os.getenv("FRONTEND_URL", "NOT_SET"),
-        "environment": Config.ENVIRONMENT,
-        "all_env_keys": sorted(os.environ.keys()),
-    }
+    return {"status": "ok", "version": "0.1.0"}
 
 
 @app.get("/api/auth/me")
