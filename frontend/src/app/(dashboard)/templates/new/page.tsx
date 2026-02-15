@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createTemplate } from "@/lib/api";
+import { createTemplate, uploadTemplateAsset } from "@/lib/api";
 import { LayoutTemplate, ArrowLeft, Plus, Trash2, Link2, X } from "lucide-react";
+import { TemplateAssetsUpload, type BufferedAsset } from "@/components/TemplateAssetsUpload";
 import type { ReferenceUrl } from "@/types";
 import Link from "next/link";
 import axios from "axios";
@@ -55,6 +56,7 @@ export default function NewTemplatePage() {
     { name: "", type: "text", required: true, description: "" },
   ]);
   const [referenceUrls, setReferenceUrls] = useState<ReferenceUrl[]>([]);
+  const [pendingAssets, setPendingAssets] = useState<BufferedAsset[]>([]);
 
   // Auto-generate slug from name
   useEffect(() => {
@@ -114,8 +116,21 @@ export default function NewTemplatePage() {
         reference_urls: validUrls,
       });
 
-      // Redirect to edit page so user can upload assets
-      router.push(`/templates/${res.data.id}`);
+      const templateId = res.data.id;
+
+      // Upload buffered assets
+      for (const asset of pendingAssets) {
+        const formData = new FormData();
+        formData.append("file", asset.file);
+        formData.append("asset_type", asset.assetType);
+        formData.append("name", asset.file.name);
+        await uploadTemplateAsset(templateId, formData);
+      }
+
+      // Clean up preview URLs
+      pendingAssets.forEach((a) => a.preview && URL.revokeObjectURL(a.preview));
+
+      router.push(`/templates/${templateId}`);
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data?.detail) {
         setError(err.response.data.detail);
@@ -308,10 +323,13 @@ export default function NewTemplatePage() {
               ))}
             </div>
           )}
-          <p className="text-xs text-zinc-700 mt-2">
-            After creating the template, you&apos;ll be redirected to the edit page where you can upload images and PDFs as visual references for the AI.
-          </p>
         </FormSection>
+
+        {/* Assets & References */}
+        <TemplateAssetsUpload
+          bufferedFiles={pendingAssets}
+          onBufferedFilesChange={setPendingAssets}
+        />
 
         {/* System Prompt */}
         <FormSection title="System Prompt (optional)">
