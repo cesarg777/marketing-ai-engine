@@ -99,7 +99,7 @@ def on_startup():
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.1.0", "cors_origins": cors_origins, "frontend_url_raw": Config.FRONTEND_URL, "environment": Config.ENVIRONMENT}
 
 
 @app.get("/api/auth/me")
