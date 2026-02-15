@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -344,3 +346,180 @@ def get_figma_text_nodes(
     except Exception as e:
         logger.warning("Figma text nodes failed for org %s: %s", org_id, e)
         raise HTTPException(status_code=400, detail=f"Failed to get text nodes: {str(e)[:200]}")
+
+
+# ─── Canva Connection (OAuth 2.0 + PKCE) ───
+
+# In-memory store for PKCE verifiers (keyed by state param, short-lived)
+_canva_pkce_store: dict[str, str] = {}
+
+
+class CanvaAuthUrlResponse(BaseModel):
+    auth_url: str
+    state: str
+
+
+class CanvaCallbackRequest(BaseModel):
+    code: str = Field(..., min_length=1)
+    state: str = Field(..., min_length=1)
+
+
+class CanvaStatusResponse(BaseModel):
+    connected: bool
+    user_name: str | None = None
+
+
+class CanvaTemplateItem(BaseModel):
+    id: str
+    title: str
+    thumbnail: dict = {}
+
+
+class CanvaFieldItem(BaseModel):
+    name: str
+    type: str
+
+
+@router.get("/canva/authorize-url", response_model=CanvaAuthUrlResponse)
+def get_canva_authorize_url(
+    org_id: str = Depends(get_current_org_id),
+):
+    """Generate a Canva OAuth authorization URL with PKCE."""
+    client_id = os.getenv("CANVA_CLIENT_ID", "")
+    redirect_uri = os.getenv("CANVA_REDIRECT_URI", "")
+    if not client_id or not redirect_uri:
+        raise HTTPException(status_code=400, detail="Canva integration not configured. Set CANVA_CLIENT_ID and CANVA_REDIRECT_URI.")
+
+    from backend.services.canva_service import generate_pkce, build_auth_url
+
+    code_verifier, code_challenge = generate_pkce()
+    state = secrets.token_urlsafe(32)
+
+    # Store verifier for callback (keyed by org_id:state)
+    _canva_pkce_store[f"{org_id}:{state}"] = code_verifier
+
+    auth_url = build_auth_url(client_id, redirect_uri, state, code_challenge)
+    return CanvaAuthUrlResponse(auth_url=auth_url, state=state)
+
+
+@router.post("/canva/callback", response_model=CanvaStatusResponse)
+def canva_oauth_callback(
+    data: CanvaCallbackRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Exchange Canva OAuth code for tokens and store connection."""
+    import time as _time
+    client_id = os.getenv("CANVA_CLIENT_ID", "")
+    client_secret = os.getenv("CANVA_CLIENT_SECRET", "")
+    redirect_uri = os.getenv("CANVA_REDIRECT_URI", "")
+
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=400, detail="Canva integration not configured.")
+
+    # Retrieve PKCE verifier
+    store_key = f"{org_id}:{data.state}"
+    code_verifier = _canva_pkce_store.pop(store_key, None)
+    if not code_verifier:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state. Please try connecting again.")
+
+    from backend.services.canva_service import exchange_code, get_user_info
+
+    try:
+        token_data = exchange_code(client_id, client_secret, data.code, redirect_uri, code_verifier)
+    except Exception as e:
+        logger.warning("Canva OAuth exchange failed for org %s: %s", org_id, e)
+        raise HTTPException(status_code=400, detail=f"Failed to connect Canva: {str(e)[:200]}")
+
+    access_token = token_data["access_token"]
+
+    # Get user display name
+    user_name = ""
+    try:
+        profile = get_user_info(access_token)
+        user_name = profile.get("display_name", profile.get("name", ""))
+    except Exception:
+        pass
+
+    upsert_org_config(db, org_id, CANVA_CONFIG_KEY, {
+        "access_token": access_token,
+        "refresh_token": token_data.get("refresh_token", ""),
+        "expires_at": _time.time() + token_data.get("expires_in", 3600),
+        "user_name": user_name,
+    })
+
+    return CanvaStatusResponse(connected=True, user_name=user_name or None)
+
+
+@router.get("/canva/status", response_model=CanvaStatusResponse)
+def get_canva_status(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Check Canva connection status."""
+    config = get_org_config(db, org_id, CANVA_CONFIG_KEY)
+    if not config or not config.get("access_token"):
+        return CanvaStatusResponse(connected=False)
+    return CanvaStatusResponse(
+        connected=True,
+        user_name=config.get("user_name"),
+    )
+
+
+@router.delete("/canva/disconnect")
+def disconnect_canva(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Disconnect Canva."""
+    delete_org_config(db, org_id, CANVA_CONFIG_KEY)
+    return {"detail": "Canva disconnected."}
+
+
+# ─── Canva Browsing ───
+
+@router.get("/canva/brand-templates")
+def list_canva_brand_templates(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """List the user's Canva brand templates."""
+    config = get_org_config(db, org_id, CANVA_CONFIG_KEY)
+    if not config:
+        raise HTTPException(status_code=404, detail="Canva not connected. Go to Settings to connect.")
+
+    from backend.services.canva_service import get_valid_token, list_brand_templates
+
+    try:
+        access_token, updated = get_valid_token(config)
+        if updated:
+            upsert_org_config(db, org_id, CANVA_CONFIG_KEY, updated)
+        templates = list_brand_templates(access_token)
+        return {"templates": templates}
+    except Exception as e:
+        logger.warning("Canva brand templates failed for org %s: %s", org_id, e)
+        raise HTTPException(status_code=400, detail=f"Failed to list Canva templates: {str(e)[:200]}")
+
+
+@router.get("/canva/brand-templates/{template_id}/dataset")
+def get_canva_template_dataset(
+    template_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Get fillable fields for a Canva brand template."""
+    config = get_org_config(db, org_id, CANVA_CONFIG_KEY)
+    if not config:
+        raise HTTPException(status_code=404, detail="Canva not connected. Go to Settings to connect.")
+
+    from backend.services.canva_service import get_valid_token, get_template_dataset
+
+    try:
+        access_token, updated = get_valid_token(config)
+        if updated:
+            upsert_org_config(db, org_id, CANVA_CONFIG_KEY, updated)
+        fields = get_template_dataset(access_token, template_id)
+        return {"fields": fields}
+    except Exception as e:
+        logger.warning("Canva template dataset failed for org %s: %s", org_id, e)
+        raise HTTPException(status_code=400, detail=f"Failed to get template fields: {str(e)[:200]}")

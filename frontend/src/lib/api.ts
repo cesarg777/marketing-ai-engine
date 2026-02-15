@@ -385,12 +385,41 @@ export const getFigmaTextNodes = (fileKey: string, nodeId: string) =>
   );
 
 // --- Canva Connection ---
+export const getCanvaAuthorizeUrl = () =>
+  api.get<{ auth_url: string; state: string }>("/settings/canva/authorize-url");
+
+export const canvaOAuthCallback = (data: { code: string; state: string }) =>
+  api.post<{ connected: boolean; user_name?: string }>(
+    "/settings/canva/callback",
+    data
+  );
+
 export const getCanvaStatus = () =>
   api.get<{ connected: boolean; user_name?: string }>(
     "/settings/canva/status"
   );
 
 export const disconnectCanva = () => api.delete("/settings/canva/disconnect");
+
+// --- Canva Browsing ---
+export interface CanvaTemplate {
+  id: string;
+  title: string;
+  thumbnail: { url?: string; width?: number; height?: number };
+}
+
+export interface CanvaField {
+  name: string;
+  type: string;
+}
+
+export const listCanvaBrandTemplates = () =>
+  api.get<{ templates: CanvaTemplate[] }>("/settings/canva/brand-templates");
+
+export const getCanvaTemplateDataset = (templateId: string) =>
+  api.get<{ fields: CanvaField[] }>(
+    `/settings/canva/brand-templates/${templateId}/dataset`
+  );
 
 // --- Onboarding ---
 export const checkOnboardingStatus = () => api.get("/onboarding/status");

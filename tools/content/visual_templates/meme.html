@@ -3,143 +3,171 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1080">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
     --brand-accent: {{ brand.accent_color }};
+    --brand-dark: color-mix(in srgb, var(--brand-accent) 35%, #1a2030);
+    --brand-darker: color-mix(in srgb, var(--brand-accent) 20%, #0f1320);
   }
   body {
     width: 1080px;
     height: 1350px;
-    font-family: 'Montserrat', sans-serif;
-    background: #111;
-    color: #FFFFFF;
+    font-family: 'Inter', sans-serif;
+    background: #F7F8FA;
+    color: #1A1A2E;
     overflow: hidden;
     position: relative;
   }
 
-  /* Noise texture overlay */
-  body::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: repeating-conic-gradient(#1a1a1a 0% 25%, transparent 0% 50%) 0 0 / 4px 4px;
-    opacity: 0.4;
-    z-index: 0;
-  }
-
-  /* Header */
+  /* ============================================
+     HEADER
+     ============================================ */
   .header {
-    position: relative;
-    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 28px 48px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #666;
-  }
-  .header .logo {
-    font-weight: 800;
-    color: #FFF;
-    letter-spacing: 6px;
-    font-size: 13px;
+    padding: 32px 56px;
   }
   .header .logo-img {
-    max-height: 28px;
+    max-height: 32px;
     max-width: 160px;
     object-fit: contain;
   }
+  .header .logo-text {
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 3px;
+    color: #1A1A2E;
+  }
+  .header-right {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    color: #9CA3AF;
+    text-transform: uppercase;
+  }
 
-  /* Top text bubble */
+  /* ============================================
+     TOP TEXT
+     ============================================ */
   .top-text {
-    position: relative;
-    z-index: 1;
-    margin: 40px 48px 0;
-    background: transparent;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 20px;
-    padding: 28px 36px;
-    font-size: 26px;
+    padding: 16px 56px 24px;
+  }
+  .top-text-content {
+    background: var(--brand-darker);
+    color: #FFFFFF;
+    border-radius: 16px;
+    padding: 32px 40px;
+    font-size: 24px;
     font-weight: 700;
     line-height: 1.4;
     text-align: center;
+    position: relative;
+  }
+  /* Quote bubble triangle */
+  .top-text-content::after {
+    content: "";
+    position: absolute;
+    bottom: -16px;
+    left: 80px;
+    width: 0;
+    height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-top: 16px solid var(--brand-darker);
   }
 
-  /* Meme image area */
+  /* ============================================
+     MEME IMAGE AREA
+     ============================================ */
   .meme-image-area {
-    position: relative;
-    z-index: 1;
-    margin: 40px 80px 0;
+    margin: 32px 56px 0;
     height: 640px;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    border-radius: 16px;
   }
   .meme-image-area img {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    border-radius: 16px;
+    border-radius: 20px;
   }
+
   /* Placeholder when no image */
   .meme-placeholder {
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    border-radius: 16px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--brand-accent) 10%, #E5E7EB), color-mix(in srgb, var(--brand-accent) 6%, #F3F4F6));
+    border-radius: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 20px;
+    gap: 16px;
+    border: 2px dashed color-mix(in srgb, var(--brand-accent) 25%, #D1D5DB);
   }
   .meme-placeholder .emoji {
-    font-size: 120px;
+    font-size: 100px;
   }
-  .bottom-text {
-    position: relative;
-    z-index: 1;
-    margin: 20px 80px 0;
-    font-size: 24px;
-    font-weight: 700;
+  .meme-placeholder .prompt-text {
+    font-size: 15px;
+    color: #9CA3AF;
     text-align: center;
-    color: #DDD;
+    padding: 0 60px;
+    line-height: 1.5;
+    font-style: italic;
   }
 
-  /* Footer */
+  /* ============================================
+     BOTTOM TEXT
+     ============================================ */
+  .bottom-text {
+    padding: 24px 56px 0;
+    text-align: center;
+  }
+  .bottom-text-content {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #374151;
+  }
+
+  /* ============================================
+     FOOTER
+     ============================================ */
   .footer {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1;
+    bottom: 0; left: 0; right: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 24px 48px;
-    background: rgba(0,0,0,0.6);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #666;
+    padding: 28px 56px;
+    background: #FFFFFF;
+    border-top: 1px solid #F0F0F0;
   }
-  .footer .logo {
-    font-weight: 800;
-    color: #FFF;
-    letter-spacing: 6px;
+  .footer-url {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    color: #9CA3AF;
+    text-transform: uppercase;
   }
   .footer .logo-img {
-    max-height: 24px;
+    max-height: 28px;
     max-width: 140px;
     object-fit: contain;
+  }
+  .footer .logo-text {
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: #1A1A2E;
   }
 
   {{ css_override | safe }}
@@ -148,42 +176,44 @@
 <body>
   <!-- Header -->
   <div class="header">
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
     {% if brand.logo_url %}
     <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
     {% else %}
-    <span class="logo">{{ brand.name | upper }}</span>
+    <span class="logo-text">{{ brand.name | upper }}</span>
     {% endif %}
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.website %}<span class="header-right">{{ brand.website | replace('https://', '') | replace('http://', '') }}</span>{% endif %}
   </div>
 
   <!-- Top text -->
-  <div class="top-text">{{ top_text }}</div>
+  <div class="top-text">
+    <div class="top-text-content">{{ top_text }}</div>
+  </div>
 
   <!-- Meme image -->
   <div class="meme-image-area">
     {% if image_prompt %}
     <div class="meme-placeholder">
-      <div class="emoji">😂</div>
-      <p style="font-size: 16px; color: #888; text-align: center; padding: 0 40px;">{{ image_prompt }}</p>
+      <div class="emoji">{{ image_prompt[:2] if image_prompt[:1] in ['😂','🤔','😅','🤷','💀','🫠','😤','🙃','😎','👀'] else '😂' }}</div>
+      <p class="prompt-text">{{ image_prompt }}</p>
     </div>
     {% endif %}
   </div>
 
   <!-- Bottom text -->
   {% if bottom_text %}
-  <div class="bottom-text">{{ bottom_text }}</div>
+  <div class="bottom-text">
+    <div class="bottom-text-content">{{ bottom_text }}</div>
+  </div>
   {% endif %}
 
   <!-- Footer -->
   <div class="footer">
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.website %}<span class="footer-url">{{ brand.website | replace('https://', '') | replace('http://', '') }}</span>{% endif %}
     {% if brand.logo_url %}
     <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
     {% else %}
-    <span class="logo">{{ brand.name | upper }}</span>
+    <span class="logo-text">{{ brand.name | upper }}</span>
     {% endif %}
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
   </div>
 </body>
 </html>

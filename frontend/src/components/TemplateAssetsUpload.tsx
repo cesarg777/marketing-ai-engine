@@ -13,6 +13,14 @@ import { FormSection, Select, Badge, Alert } from "@/components/ui";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export const ASSET_TYPES = [
+  { value: "design_svg", label: "SVG Template (Editable)" },
+  { value: "design_svg_cover", label: "SVG: Carousel Cover" },
+  { value: "design_svg_slide", label: "SVG: Carousel Slide" },
+  { value: "design_svg_cta", label: "SVG: Carousel CTA" },
+  { value: "design_background", label: "Design Template (Background)" },
+  { value: "design_cover", label: "Carousel: Cover Slide" },
+  { value: "design_slide", label: "Carousel: Content Slide" },
+  { value: "design_cta", label: "Carousel: CTA Slide" },
   { value: "reference_file", label: "AI Style Reference" },
   { value: "background_image", label: "Background Image" },
   { value: "header_image", label: "Header Image" },

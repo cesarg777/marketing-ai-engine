@@ -27,6 +27,9 @@ import {
   connectFigma,
   getFigmaStatus,
   disconnectFigma,
+  getCanvaStatus,
+  getCanvaAuthorizeUrl,
+  disconnectCanva,
   getICPProfile,
   saveICPProfile,
   getBrandSettings,
@@ -170,6 +173,11 @@ export default function SettingsPage() {
   const [figmaPat, setFigmaPat] = useState("");
   const [figmaShowKey, setFigmaShowKey] = useState(false);
   const [figmaMsg, setFigmaMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Canva state
+  const [canvaStatus, setCanvaStatus] = useState<{ connected: boolean; user_name?: string }>({ connected: false });
+  const [canvaLoading, setCanvaLoading] = useState(false);
+  const [canvaMsg, setCanvaMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Brand settings state
   const [brandWebsite, setBrandWebsite] = useState("");
@@ -327,6 +335,75 @@ export default function SettingsPage() {
     }
   };
 
+  const loadCanvaStatus = () => {
+    getCanvaStatus()
+      .then((r) => setCanvaStatus(r.data))
+      .catch(() => {});
+  };
+
+  const handleConnectCanva = async () => {
+    setCanvaLoading(true);
+    setCanvaMsg(null);
+    try {
+      const res = await getCanvaAuthorizeUrl();
+      const { auth_url, state } = res.data;
+      // Store state in sessionStorage so callback page can verify
+      sessionStorage.setItem("canva_oauth_state", state);
+      // Open Canva OAuth in a popup
+      const w = 600, h = 700;
+      const left = window.screenX + (window.outerWidth - w) / 2;
+      const top = window.screenY + (window.outerHeight - h) / 2;
+      const popup = window.open(
+        auth_url,
+        "canva_oauth",
+        `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no`
+      );
+      // Listen for callback message from popup
+      const listener = (event: MessageEvent) => {
+        if (event.data?.type === "canva_oauth_callback") {
+          window.removeEventListener("message", listener);
+          popup?.close();
+          loadCanvaStatus();
+          setCanvaMsg({ type: "success", text: "Canva connected successfully." });
+          setTimeout(() => setCanvaMsg(null), 4000);
+          setCanvaLoading(false);
+        }
+      };
+      window.addEventListener("message", listener);
+      // Fallback: if popup is blocked or closed without callback
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener("message", listener);
+          setCanvaLoading(false);
+          // Check if connection succeeded anyway
+          loadCanvaStatus();
+        }
+      }, 1000);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to start Canva connection.";
+      setCanvaMsg({ type: "error", text: msg });
+      setTimeout(() => setCanvaMsg(null), 6000);
+      setCanvaLoading(false);
+    }
+  };
+
+  const handleDisconnectCanva = async () => {
+    setCanvaLoading(true);
+    setCanvaMsg(null);
+    try {
+      await disconnectCanva();
+      setCanvaStatus({ connected: false });
+      setCanvaMsg({ type: "success", text: "Canva disconnected." });
+      setTimeout(() => setCanvaMsg(null), 4000);
+    } catch {
+      setCanvaMsg({ type: "error", text: "Failed to disconnect Canva." });
+      setTimeout(() => setCanvaMsg(null), 4000);
+    } finally {
+      setCanvaLoading(false);
+    }
+  };
+
   const handleSaveICP = async () => {
     setIcpSaving(true);
     setIcpMsg(null);
@@ -374,6 +451,7 @@ export default function SettingsPage() {
     loadICPProfile();
     loadGA4Status();
     loadFigmaStatus();
+    loadCanvaStatus();
     loadBrandSettings();
   }, []);
 
@@ -1739,18 +1817,65 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Canva — coming soon */}
-          <div className="flex items-center justify-between p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                <Palette size={14} className="text-cyan-400" />
+          {/* Canva */}
+          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+            {canvaMsg && (
+              <Alert variant={canvaMsg.type} className="rounded-none border-x-0 border-t-0">
+                {canvaMsg.text}
+              </Alert>
+            )}
+            <div className="p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                    <Palette size={14} className="text-cyan-400" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-zinc-200 flex items-center gap-2">
+                      Canva
+                      {canvaStatus.connected ? (
+                        <Badge variant="success" size="sm">Connected</Badge>
+                      ) : (
+                        <Badge variant="default" size="sm">Not connected</Badge>
+                      )}
+                    </span>
+                    <span className="text-xs text-zinc-500 block">
+                      {canvaStatus.connected
+                        ? `Connected as ${canvaStatus.user_name || "Canva user"}`
+                        : "Brand templates with Autofill API"}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="text-sm font-medium text-zinc-200">Canva</span>
-                <span className="text-xs text-zinc-500 block">Brand templates with Autofill API</span>
-              </div>
+              {canvaStatus.connected ? (
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-[11px] text-zinc-500">OAuth 2.0 connection active</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDisconnectCanva}
+                    loading={canvaLoading}
+                    icon={<Unlink size={12} />}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    onClick={handleConnectCanva}
+                    loading={canvaLoading}
+                    icon={<Link2 size={12} />}
+                  >
+                    Connect with Canva
+                  </Button>
+                  <p className="text-[10px] text-zinc-600 mt-2">
+                    Opens a Canva authorization window. Requires CANVA_CLIENT_ID to be configured.
+                  </p>
+                </div>
+              )}
             </div>
-            <Badge variant="default" size="sm">Coming soon</Badge>
           </div>
         </div>
       </FormSection>

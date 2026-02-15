@@ -3,200 +3,254 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1080">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
     --brand-accent: {{ brand.accent_color }};
+    --brand-light: color-mix(in srgb, var(--brand-accent) 6%, #FFFFFF);
+    --brand-tint: color-mix(in srgb, var(--brand-accent) 12%, #F0F2F5);
+    --brand-dark: color-mix(in srgb, var(--brand-accent) 40%, #1a2030);
+    --brand-darker: color-mix(in srgb, var(--brand-accent) 25%, #111827);
   }
   body {
     width: 1080px;
     height: 1350px;
-    font-family: 'Montserrat', sans-serif;
-    background: #F5F5F5;
-    color: #1A1A1A;
+    font-family: 'Inter', sans-serif;
+    background: #FFFFFF;
+    color: #1A1A2E;
     overflow: hidden;
     position: relative;
   }
 
-  /* Header */
-  .header {
+  /* ============================================
+     TITLE SECTION
+     ============================================ */
+  .title-section {
+    background: linear-gradient(135deg, var(--brand-darker) 0%, var(--brand-dark) 100%);
+    padding: 44px 56px 40px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    padding: 28px 48px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #999;
+    gap: 32px;
   }
-  .header .logo {
+  .title-text {
+    font-family: 'Playfair Display', 'Inter', serif;
+    font-size: 34px;
     font-weight: 800;
-    color: #1A1A1A;
-    letter-spacing: 6px;
-    font-size: 13px;
+    line-height: 1.2;
+    color: #FFFFFF;
+    max-width: 780px;
   }
-  .header .logo-img {
-    max-height: 28px;
+  .title-logo {
+    flex-shrink: 0;
+  }
+  .title-logo .logo-img {
+    max-height: 48px;
     max-width: 160px;
     object-fit: contain;
   }
-
-  /* Title */
-  .title-section {
-    padding: 20px 48px 40px;
-    text-align: center;
-  }
-  .title-text {
-    font-size: 36px;
+  .title-logo .logo-text {
     font-weight: 800;
-    line-height: 1.25;
-    color: #1A1A1A;
-  }
-  .title-text .highlight {
-    background: var(--brand-accent);
+    font-size: 18px;
+    letter-spacing: 3px;
     color: #FFF;
-    padding: 4px 12px;
-    border-radius: 6px;
-    display: inline;
   }
 
-  /* Steps container */
-  .steps {
-    padding: 0 48px;
+  /* ============================================
+     CONTENT BLOCKS - Alternating layout
+     ============================================ */
+  .blocks {
     display: flex;
     flex-direction: column;
-    gap: 20px;
   }
 
-  /* Each step */
-  .step {
+  .block {
     display: flex;
-    align-items: flex-start;
-    gap: 24px;
-    padding: 24px 28px;
-    background: #FFFFFF;
-    border: 2px solid #E0E0E0;
-    border-radius: 16px;
-    position: relative;
-  }
-  .step:nth-child(even) {
-    border-color: var(--brand-accent);
-    background: color-mix(in srgb, var(--brand-accent) 4%, white);
+    min-height: 180px;
   }
 
-  .step-number {
-    font-size: 48px;
-    font-weight: 900;
+  /* Two column layout */
+  .block-left, .block-right {
+    width: 50%;
+    padding: 32px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* White block (text) */
+  .block-text {
+    background: #FFFFFF;
+  }
+
+  /* Tinted block (visual/accent) */
+  .block-accent {
+    background: var(--brand-tint);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Dark block variant */
+  .block-dark {
+    background: var(--brand-darker);
+    color: #FFFFFF;
+  }
+  .block-dark .block-title {
+    color: #FFFFFF;
+  }
+  .block-dark .block-body {
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* Block content */
+  .block-number {
+    font-size: 14px;
+    font-weight: 700;
     color: var(--brand-accent);
-    line-height: 1;
-    min-width: 60px;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
   }
-  .step-content {
-    flex: 1;
+  .block-dark .block-number {
+    color: color-mix(in srgb, var(--brand-accent) 70%, white);
   }
-  .step-icon {
-    font-size: 32px;
-    margin-bottom: 4px;
-  }
-  .step-title {
-    font-size: 22px;
+
+  .block-title {
+    font-size: 19px;
     font-weight: 800;
-    color: #1A1A1A;
+    text-transform: uppercase;
+    color: #1A1A2E;
     line-height: 1.3;
-    margin-bottom: 6px;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
   }
-  .step-subtitle {
+  .block-body {
     font-size: 15px;
     font-weight: 400;
-    color: #666;
-    line-height: 1.5;
+    line-height: 1.6;
+    color: #4B5563;
   }
 
-  /* Connecting line */
-  .steps::before {
-    content: "";
-    position: absolute;
-    left: 92px;
-    top: 340px;
-    bottom: 140px;
-    width: 3px;
-    background: linear-gradient(to bottom, var(--brand-accent), #E0E0E0);
-    z-index: 0;
-    border-radius: 2px;
+  /* Accent icon placeholder */
+  .block-icon {
+    font-size: 56px;
+    opacity: 0.6;
   }
 
-  /* Footer */
-  .footer {
+  /* ============================================
+     TAKEAWAY SECTION
+     ============================================ */
+  .takeaway {
+    background: var(--brand-accent);
+    padding: 32px 56px;
     position: absolute;
-    bottom: 0;
+    bottom: 72px;
     left: 0;
     right: 0;
+  }
+  .takeaway-text {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.5;
+    color: #FFFFFF;
+    text-align: center;
+  }
+
+  /* ============================================
+     FOOTER
+     ============================================ */
+  .footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 24px 48px;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #999;
+    padding: 20px 56px;
+    background: #FFFFFF;
   }
-  .footer .logo {
-    font-weight: 800;
-    color: #1A1A1A;
-    letter-spacing: 6px;
+  .footer-url {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    color: #9CA3AF;
+    text-transform: uppercase;
   }
   .footer .logo-img {
-    max-height: 24px;
+    max-height: 30px;
     max-width: 140px;
     object-fit: contain;
+  }
+  .footer .logo-text {
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: #1A1A2E;
   }
 
   {{ css_override | safe }}
 </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="header">
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
-    {% if brand.logo_url %}
-    <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
-    {% else %}
-    <span class="logo">{{ brand.name | upper }}</span>
-    {% endif %}
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
-  </div>
-
-  <!-- Title -->
+  <!-- Title Section -->
   <div class="title-section">
     <h1 class="title-text">{{ title }}</h1>
+    <div class="title-logo">
+      {% if brand.logo_url %}
+      <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+      {% else %}
+      <span class="logo-text">{{ brand.name | upper }}</span>
+      {% endif %}
+    </div>
   </div>
 
-  <!-- Steps -->
-  <div class="steps">
+  <!-- Content Blocks - Alternating zigzag -->
+  <div class="blocks">
     {% for slide in slides %}
-    <div class="step">
-      <div class="step-number">{{ "%02d" | format(loop.index) }}</div>
-      <div class="step-content">
+    {% if loop.index is odd %}
+    <div class="block">
+      <div class="block-left block-text {% if loop.index == 3 or loop.index == 5 %}block-dark{% endif %}">
+        <div class="block-number">{{ "%02d" | format(loop.index) }}</div>
+        <div class="block-title">{{ slide.headline }}</div>
+        <div class="block-body">{{ slide.body }}</div>
+      </div>
+      <div class="block-right block-accent {% if loop.index == 3 or loop.index == 5 %}block-dark{% endif %}">
         {% if slide.visual_prompt %}
-        <div class="step-icon">{{ slide.visual_prompt[:2] if slide.visual_prompt[:2] in ['📊','🎯','📞','💡','📈','🔍','⚡','🏆','📋','✅','🤝','📱','💰','🔑','📌'] else '→' }}</div>
+        <div class="block-icon">{{ slide.visual_prompt[:2] }}</div>
         {% endif %}
-        <div class="step-title">{{ slide.headline }}</div>
-        <div class="step-subtitle">{{ slide.body }}</div>
       </div>
     </div>
+    {% else %}
+    <div class="block">
+      <div class="block-left block-accent">
+        {% if slide.visual_prompt %}
+        <div class="block-icon">{{ slide.visual_prompt[:2] }}</div>
+        {% endif %}
+      </div>
+      <div class="block-right block-text">
+        <div class="block-number">{{ "%02d" | format(loop.index) }}</div>
+        <div class="block-title">{{ slide.headline }}</div>
+        <div class="block-body">{{ slide.body }}</div>
+      </div>
+    </div>
+    {% endif %}
     {% endfor %}
   </div>
 
+  <!-- Takeaway -->
+  {% if slides|length > 0 %}
+  <div class="takeaway">
+    <div class="takeaway-text">{{ slides[-1].body if slides|length > 4 else (cta if cta is defined else brand.name) }}</div>
+  </div>
+  {% endif %}
+
   <!-- Footer -->
   <div class="footer">
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.website %}<span class="footer-url">{{ brand.website | replace('https://', '') | replace('http://', '') }}</span>{% endif %}
     {% if brand.logo_url %}
     <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
     {% else %}
-    <span class="logo">{{ brand.name | upper }}</span>
+    <span class="logo-text">{{ brand.name | upper }}</span>
     {% endif %}
   </div>
 </body>

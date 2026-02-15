@@ -3,232 +3,243 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1080">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
     --brand-accent: {{ brand.accent_color }};
+    --brand-light: color-mix(in srgb, var(--brand-accent) 8%, #F7F8FA);
+    --brand-medium: color-mix(in srgb, var(--brand-accent) 15%, #F0F1F3);
   }
   body {
     width: 1080px;
     height: 1350px;
-    font-family: 'Montserrat', sans-serif;
-    background: #0A0A0A;
-    color: #FFFFFF;
+    font-family: 'Inter', sans-serif;
+    background: #F7F8FA;
+    color: #1A1A2E;
     overflow: hidden;
     position: relative;
   }
 
-  /* Header bar */
+  /* Subtle background texture */
+  body::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 400px 400px at 80% 20%, color-mix(in srgb, var(--brand-accent) 6%, transparent), transparent),
+      radial-gradient(ellipse 300px 500px at 10% 80%, color-mix(in srgb, var(--brand-accent) 4%, transparent), transparent);
+    z-index: 0;
+  }
+
+  /* ============================================
+     HEADER SECTION
+     ============================================ */
   .header {
+    position: relative;
+    z-index: 1;
+    padding: 40px 56px 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 32px 48px;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #999;
-  }
-  .header .logo {
-    font-size: 15px;
-    font-weight: 800;
-    color: #FFF;
-    letter-spacing: 6px;
-  }
-  .header .logo-img {
-    max-height: 30px;
-    max-width: 160px;
-    object-fit: contain;
   }
 
-  /* Meet the Team badge */
+  /* Badge */
   .badge {
-    position: absolute;
-    top: 100px;
-    right: 48px;
-    background: var(--brand-accent);
-    color: #FFF;
-    padding: 10px 24px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  /* Arrow icon */
-  .arrow-icon {
-    position: absolute;
-    top: 170px;
-    left: 48px;
-    width: 64px;
-    height: 64px;
-    border: 3px solid var(--brand-accent);
-    border-radius: 50%;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-  }
-  .arrow-icon::after {
-    content: "→";
-    font-size: 28px;
-    color: var(--brand-accent);
-    font-weight: 700;
-  }
-
-  /* Quote */
-  .quote-section {
-    position: absolute;
-    top: 270px;
-    left: 48px;
-    right: 48px;
-    padding-right: 20px;
-  }
-  .quote-mark {
-    font-size: 80px;
-    color: var(--brand-accent);
-    line-height: 0.8;
-    font-weight: 900;
-    margin-bottom: 16px;
-  }
-  .quote-text {
-    font-size: 36px;
-    font-weight: 700;
-    line-height: 1.35;
-    color: #FFF;
-  }
-
-  /* Person section */
-  .person-section {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 420px;
-    display: flex;
-    align-items: flex-end;
-  }
-  .person-photo-bg {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 480px;
-    height: 420px;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--brand-accent) 70%, black) 0%, var(--brand-accent) 100%);
-    opacity: 0.3;
-    border-radius: 20px 0 0 0;
-  }
-  .person-photo {
-    position: absolute;
-    bottom: 0;
-    right: 40px;
-    width: 400px;
-    height: 400px;
-    object-fit: cover;
-    border-radius: 16px 16px 0 0;
-    filter: grayscale(100%);
-    mix-blend-mode: luminosity;
-  }
-  .person-info {
-    position: absolute;
-    bottom: 120px;
-    left: 48px;
-  }
-  .person-name {
-    display: inline-block;
+    gap: 8px;
     background: var(--brand-accent);
     color: #FFF;
     padding: 12px 28px;
     border-radius: 8px;
-    font-size: 28px;
-    font-weight: 800;
-    text-transform: uppercase;
+    font-size: 15px;
+    font-weight: 700;
     letter-spacing: 2px;
-  }
-  .person-role {
-    margin-top: 12px;
-    font-size: 18px;
-    font-weight: 600;
-    color: #999;
-    letter-spacing: 1px;
+    text-transform: uppercase;
   }
 
-  /* Footer */
+  /* ============================================
+     PHOTO SECTION
+     ============================================ */
+  .photo-container {
+    position: absolute;
+    top: 32px;
+    right: 56px;
+    z-index: 2;
+  }
+  .photo-frame {
+    width: 380px;
+    height: 420px;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    background: var(--brand-medium);
+  }
+  .photo-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* No photo placeholder */
+  .photo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--brand-light), var(--brand-medium));
+  }
+  .photo-placeholder-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--brand-accent) 20%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    color: var(--brand-accent);
+    font-weight: 300;
+  }
+
+  /* Decorative accent behind photo */
+  .photo-accent {
+    position: absolute;
+    top: 100px;
+    right: 20px;
+    width: 400px;
+    height: 440px;
+    border-radius: 20px;
+    border: 2px solid color-mix(in srgb, var(--brand-accent) 20%, transparent);
+    z-index: 1;
+  }
+
+  /* ============================================
+     CONTENT SECTION
+     ============================================ */
+  .content {
+    position: absolute;
+    top: 500px;
+    left: 56px;
+    right: 56px;
+    z-index: 3;
+  }
+
+  .person-name {
+    font-family: 'Inter', sans-serif;
+    font-size: 42px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #1A1A2E;
+    line-height: 1.1;
+  }
+  .person-role {
+    margin-top: 8px;
+    font-size: 17px;
+    font-weight: 500;
+    color: #6B7280;
+    letter-spacing: 0.5px;
+  }
+
+  /* Accent bar */
+  .accent-bar {
+    width: 48px;
+    height: 4px;
+    background: var(--brand-accent);
+    border-radius: 2px;
+    margin: 28px 0;
+  }
+
+  /* Quote */
+  .quote-text {
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.7;
+    color: #374151;
+    max-width: 900px;
+  }
+  .quote-text::before {
+    content: "\201C";
+    font-family: 'Playfair Display', serif;
+    font-size: 64px;
+    font-weight: 800;
+    color: var(--brand-accent);
+    display: block;
+    line-height: 0.6;
+    margin-bottom: 12px;
+  }
+
+  /* ============================================
+     FOOTER / BRAND
+     ============================================ */
   .footer {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: 0; left: 0; right: 0;
+    z-index: 3;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 24px 48px;
-    background: rgba(0,0,0,0.8);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #666;
+    padding: 32px 56px;
   }
-  .footer .logo {
-    font-weight: 800;
-    color: #FFF;
-    letter-spacing: 6px;
+  .footer-left {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    color: #9CA3AF;
+    text-transform: uppercase;
   }
   .footer .logo-img {
-    max-height: 24px;
-    max-width: 140px;
+    max-height: 36px;
+    max-width: 160px;
     object-fit: contain;
+  }
+  .footer .logo-text {
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: #1A1A2E;
   }
 
   {{ css_override | safe }}
 </style>
 </head>
 <body>
-  <!-- Header -->
+  <!-- Header with badge -->
   <div class="header">
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
-    {% if brand.logo_url %}
-    <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
-    {% else %}
-    <span class="logo">{{ brand.name | upper }}</span>
-    {% endif %}
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    <div class="badge">Nuestro Equipo</div>
   </div>
 
-  <!-- Badge -->
-  <div class="badge">MEET THE TEAM</div>
-
-  <!-- Arrow -->
-  <div class="arrow-icon"></div>
-
-  <!-- Quote -->
-  <div class="quote-section">
-    <div class="quote-mark">"</div>
-    <div class="quote-text">{{ quote }}</div>
-  </div>
-
-  <!-- Person -->
-  <div class="person-section">
-    <div class="person-photo-bg"></div>
-    {% if photo_url %}
-    <img class="person-photo" src="{{ photo_url }}" alt="{{ person_name }}">
-    {% endif %}
-    <div class="person-info">
-      <div class="person-name">{{ person_name }}</div>
-      <div class="person-role">{{ role }}</div>
+  <!-- Photo -->
+  <div class="photo-accent"></div>
+  <div class="photo-container">
+    <div class="photo-frame">
+      {% if photo_url %}
+      <img src="{{ photo_url }}" alt="{{ person_name }}">
+      {% else %}
+      <div class="photo-placeholder">
+        <div class="photo-placeholder-icon">&#x1F464;</div>
+      </div>
+      {% endif %}
     </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <h1 class="person-name">{{ person_name }}</h1>
+    <p class="person-role">{{ role }}</p>
+    <div class="accent-bar"></div>
+    <div class="quote-text">{{ quote }}</div>
   </div>
 
   <!-- Footer -->
   <div class="footer">
-    {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+    {% if brand.website %}<span class="footer-left">{{ brand.website | replace('https://', '') | replace('http://', '') }}</span>{% endif %}
     {% if brand.logo_url %}
     <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
     {% else %}
-    <span class="logo">{{ brand.name | upper }}</span>
+    <span class="logo-text">{{ brand.name | upper }}</span>
     {% endif %}
   </div>
 </body>

@@ -3,20 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1080">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
     --brand-accent: {{ brand.accent_color }};
+    --bg-dark: color-mix(in srgb, var(--brand-accent) 18%, #1a1f2e);
+    --bg-darker: color-mix(in srgb, var(--brand-accent) 10%, #0f1320);
+    --bg-sidebar: color-mix(in srgb, var(--brand-accent) 35%, #1a2030);
   }
   body {
     width: 1080px;
-    font-family: 'Montserrat', sans-serif;
-    background: #0A0A0A;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-darker);
     color: #FFFFFF;
   }
 
-  /* Each slide is a page */
   .slide {
     width: 1080px;
     height: 1080px;
@@ -25,157 +27,267 @@
     page-break-after: always;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    background: #0A0A0A;
   }
-  .slide:last-child {
-    page-break-after: auto;
+  .slide:last-child { page-break-after: auto; }
+
+  /* ============================================
+     COVER SLIDE
+     ============================================ */
+  .cover {
+    background: linear-gradient(165deg, var(--bg-dark) 0%, var(--bg-darker) 70%, color-mix(in srgb, var(--brand-accent) 8%, #0a0e18) 100%);
   }
 
-  /* Header bar (all slides) */
-  .slide-header {
+  .cover-header {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 0; left: 0; right: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 28px 48px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: #666;
+    padding: 40px 56px;
+    z-index: 5;
   }
-  .slide-header .logo {
-    font-weight: 800;
-    color: #FFF;
-    letter-spacing: 6px;
-    font-size: 13px;
-  }
-  .slide-header .logo-img {
-    max-height: 28px;
+  .cover-header .logo-img {
+    max-height: 36px;
     max-width: 160px;
     object-fit: contain;
   }
-
-  /* Footer bar (all slides) */
-  .slide-footer {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 24px 48px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 2px;
-    color: #555;
+  .cover-header .logo-text {
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: #FFF;
   }
 
-  /* --- Cover Slide --- */
+  /* Decorative gradient orb */
+  .cover-orb {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--brand-accent) 20%, transparent), transparent 70%);
+    top: -150px;
+    right: -100px;
+    z-index: 0;
+  }
+
   .cover-content {
-    padding: 120px 64px 100px;
+    position: relative;
+    z-index: 2;
+    padding: 200px 64px 0 64px;
+    flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    flex: 1;
+  }
+  .cover-eyebrow {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 24px;
   }
   .cover-title {
-    font-size: 56px;
-    font-weight: 900;
-    line-height: 1.15;
+    font-family: 'Playfair Display', 'Inter', serif;
+    font-size: 68px;
+    font-weight: 800;
+    line-height: 1.05;
     max-width: 900px;
-  }
-  .cover-subtitle {
-    margin-top: 32px;
-    font-size: 20px;
-    font-weight: 500;
-    color: #999;
-    max-width: 700px;
-    line-height: 1.5;
-  }
-  .cover-accent-line {
-    width: 80px;
-    height: 5px;
-    background: var(--brand-accent);
-    border-radius: 3px;
-    margin-top: 40px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
-  /* --- Content Slides --- */
-  .content-slide-inner {
-    padding: 120px 64px 100px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    flex: 1;
-  }
-  .slide-number {
-    font-size: 72px;
-    font-weight: 900;
-    color: var(--brand-accent);
-    line-height: 1;
-    margin-bottom: 24px;
-  }
-  .slide-headline {
-    font-size: 40px;
-    font-weight: 800;
-    line-height: 1.2;
-    margin-bottom: 24px;
-    max-width: 850px;
-  }
-  .slide-body {
-    font-size: 22px;
-    font-weight: 400;
-    line-height: 1.6;
-    color: #BBB;
-    max-width: 800px;
-  }
-  .slide-divider {
-    width: 60px;
+  /* Cover accent bar */
+  .cover-bar {
+    width: 56px;
     height: 4px;
     background: var(--brand-accent);
     border-radius: 2px;
-    margin-top: 32px;
+    margin-top: 44px;
   }
 
-  /* --- CTA Slide --- */
-  .cta-content {
-    padding: 120px 64px 100px;
+  .cover-footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 56px;
+    z-index: 5;
+  }
+  .cover-footer-url {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.4);
+  }
+  .cover-footer-social {
+    display: flex;
+    gap: 12px;
+  }
+  .social-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 700;
+  }
+
+  /* ============================================
+     CONTENT SLIDES
+     ============================================ */
+  .content-slide {
+    background: linear-gradient(170deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
+    display: flex;
+    flex-direction: row;
+  }
+
+  /* Left sidebar */
+  .slide-sidebar {
+    width: 100px;
+    background: var(--bg-sidebar);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .sidebar-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 80px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.9);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    letter-spacing: 2px;
+  }
+
+  /* Content area */
+  .slide-content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 100px 72px;
+    position: relative;
+  }
+
+  /* Small logo watermark */
+  .slide-logo-mark {
+    position: absolute;
+    bottom: 40px;
+    right: 48px;
+  }
+  .slide-logo-mark .logo-img {
+    max-height: 28px;
+    max-width: 120px;
+    object-fit: contain;
+    opacity: 0.5;
+  }
+  .slide-logo-mark .logo-text {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  .content-headline {
+    font-family: 'Inter', sans-serif;
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1.25;
+    max-width: 740px;
+    margin-bottom: 28px;
+  }
+  .content-body {
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.6);
+    max-width: 660px;
+  }
+  .content-divider {
+    width: 44px;
+    height: 3px;
+    background: var(--brand-accent);
+    border-radius: 2px;
+    margin-top: 36px;
+  }
+
+  /* Slide footer - page number */
+  .slide-page {
+    position: absolute;
+    bottom: 40px;
+    left: 48px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  /* ============================================
+     CTA SLIDE
+     ============================================ */
+  .cta-slide {
+    background: linear-gradient(165deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    flex: 1;
+    position: relative;
   }
-  .cta-text {
-    font-size: 44px;
+
+  .cta-logo {
+    position: absolute;
+    top: 52px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .cta-logo .logo-img {
+    max-height: 44px;
+    max-width: 180px;
+    object-fit: contain;
+  }
+  .cta-logo .logo-text {
     font-weight: 800;
-    line-height: 1.25;
-    max-width: 800px;
-  }
-  .cta-button {
-    margin-top: 48px;
-    display: inline-block;
-    background: var(--brand-accent);
+    font-size: 18px;
+    letter-spacing: 4px;
     color: #FFF;
-    padding: 20px 48px;
-    border-radius: 12px;
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
   }
-  .cta-website {
-    margin-top: 32px;
-    font-size: 16px;
-    color: #666;
-    letter-spacing: 2px;
+
+  .cta-text {
+    font-family: 'Playfair Display', 'Inter', serif;
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1.2;
+    max-width: 800px;
+    padding: 0 64px;
+  }
+
+  .cta-footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 56px;
+  }
+  .cta-footer-url {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.4);
+  }
+  .cta-footer-social {
+    display: flex;
+    gap: 12px;
   }
 
   {{ css_override | safe }}
@@ -183,75 +295,69 @@
 </head>
 <body>
   <!-- Slide 1: Cover -->
-  <div class="slide">
-    <div class="slide-header">
-      <span>{{ title[:30] | upper }}</span>
+  <div class="slide cover">
+    <div class="cover-orb"></div>
+    <div class="cover-header">
       {% if brand.logo_url %}
       <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
       {% else %}
-      <span class="logo">{{ brand.name | upper }}</span>
+      <span class="logo-text">{{ brand.name | upper }}</span>
       {% endif %}
-      {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
     </div>
     <div class="cover-content">
-      <h1 class="cover-title">{{ title }}</h1>
       {% if social_caption %}
-      <p class="cover-subtitle">{{ social_caption[:120] }}</p>
+      <div class="cover-eyebrow">{{ social_caption[:60] | upper }}</div>
       {% endif %}
-      <div class="cover-accent-line"></div>
+      <h1 class="cover-title">{{ title }}</h1>
+      <div class="cover-bar"></div>
     </div>
-    <div class="slide-footer">
-      <span>01 / {{ slides|length + 2 }}</span>
-      <span>SWIPE →</span>
+    <div class="cover-footer">
+      {% if brand.website %}<span class="cover-footer-url">{{ brand.website | replace('https://', '') | replace('http://', '') }}</span>{% endif %}
+      <div class="cover-footer-social">
+        <div class="social-dot">in</div>
+        <div class="social-dot">f</div>
+      </div>
     </div>
   </div>
 
   <!-- Content Slides -->
   {% for slide in slides %}
-  <div class="slide">
-    <div class="slide-header">
-      <span>{{ title[:30] | upper }}</span>
-      {% if brand.logo_url %}
-      <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
-      {% else %}
-      <span class="logo">{{ brand.name | upper }}</span>
-      {% endif %}
-      {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
+  <div class="slide content-slide">
+    <div class="slide-sidebar">
+      <div class="sidebar-number">{{ "%02d" | format(loop.index) }}</div>
     </div>
-    <div class="content-slide-inner">
-      <div class="slide-number">{{ "%02d" | format(loop.index) }}</div>
-      <h2 class="slide-headline">{{ slide.headline }}</h2>
-      <p class="slide-body">{{ slide.body }}</p>
-      <div class="slide-divider"></div>
-    </div>
-    <div class="slide-footer">
-      <span>{{ "%02d" | format(loop.index + 1) }} / {{ slides|length + 2 }}</span>
-      <span>SWIPE →</span>
+    <div class="slide-content-area">
+      <h2 class="content-headline">{{ slide.headline }}</h2>
+      <p class="content-body">{{ slide.body }}</p>
+      <div class="content-divider"></div>
+      <div class="slide-logo-mark">
+        {% if brand.logo_url %}
+        <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
+        {% else %}
+        <span class="logo-text">{{ brand.name | upper }}</span>
+        {% endif %}
+      </div>
+      <div class="slide-page">{{ "%02d" | format(loop.index + 1) }} / {{ slides|length + 2 }}</div>
     </div>
   </div>
   {% endfor %}
 
   <!-- CTA Slide -->
-  <div class="slide">
-    <div class="slide-header">
-      <span>{{ title[:30] | upper }}</span>
+  <div class="slide cta-slide">
+    <div class="cta-logo">
       {% if brand.logo_url %}
       <img class="logo-img" src="{{ brand.logo_url }}" alt="{{ brand.name }}">
       {% else %}
-      <span class="logo">{{ brand.name | upper }}</span>
+      <span class="logo-text">{{ brand.name | upper }}</span>
       {% endif %}
-      {% if brand.website %}<span>{{ brand.website | upper }}</span>{% endif %}
     </div>
-    <div class="cta-content">
-      <p class="cta-text">{{ cta }}</p>
-      {% if brand.website %}
-      <div class="cta-button">{{ brand.website | upper }}</div>
-      {% endif %}
-      <p class="cta-website">{{ brand.name | upper }}</p>
-    </div>
-    <div class="slide-footer">
-      <span>{{ "%02d" | format(slides|length + 2) }} / {{ slides|length + 2 }}</span>
-      <span>FIN</span>
+    <p class="cta-text">{{ cta }}</p>
+    <div class="cta-footer">
+      {% if brand.website %}<span class="cta-footer-url">{{ brand.website | replace('https://', '') | replace('http://', '') }}</span>{% endif %}
+      <div class="cta-footer-social">
+        <div class="social-dot">in</div>
+        <div class="social-dot">f</div>
+      </div>
     </div>
   </div>
 </body>

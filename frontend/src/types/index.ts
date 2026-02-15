@@ -79,6 +79,13 @@ export interface ContentTemplate {
   system_prompt: string;
   default_tone: string;
   reference_urls: ReferenceUrl[];
+  design_source: {
+    provider: string;
+    file_key?: string;
+    frame_id?: string;
+    frame_name?: string;
+    field_map?: Record<string, string>;
+  } | null;
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
