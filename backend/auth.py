@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import os
+import jwt as pyjwt
+from jwt import PyJWKClient
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 import sys
@@ -17,13 +18,18 @@ logger = logging.getLogger(__name__)
 
 security = HTTPBearer(auto_error=False)
 
-ALGORITHM = "HS256"
-
 # Dev-mode default org ID (used when no Supabase JWT is configured)
 DEV_ORG_ID = "00000000-0000-0000-0000-000000000001"
 
 # Explicitly check for dev mode via environment variable
 _IS_DEV_MODE = os.getenv("ENVIRONMENT", "development").lower() in ("development", "dev", "local")
+
+# JWKS client for ES256 token verification (Supabase's current signing algorithm)
+_jwks_client: PyJWKClient | None = None
+if Config.SUPABASE_URL:
+    _jwks_url = f"{Config.SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+    _jwks_client = PyJWKClient(_jwks_url, cache_keys=True, lifespan=3600)
+    logger.info("JWKS client initialized: %s", _jwks_url)
 
 
 def get_current_user(
@@ -31,6 +37,7 @@ def get_current_user(
 ) -> dict:
     """Decode Supabase JWT and return the payload.
 
+    Supports both ES256 (JWKS) and HS256 (JWT secret) algorithms.
     Returns the full JWT claims dict including 'sub' (user UUID),
     'email', 'role', etc.
     """
@@ -45,7 +52,7 @@ def get_current_user(
     jwt_secret = Config.SUPABASE_JWT_SECRET
 
     # Dev mode bypass: only when JWT secret is missing AND explicitly in dev
-    if not jwt_secret:
+    if not jwt_secret and not _jwks_client:
         if _IS_DEV_MODE:
             logger.warning("Auth bypass: no JWT secret configured (dev mode)")
             return {"sub": "dev-user", "email": "dev@localhost", "role": "authenticated"}
@@ -55,18 +62,43 @@ def get_current_user(
         )
 
     try:
-        payload = jwt.decode(
-            token,
-            jwt_secret,
-            algorithms=[ALGORITHM],
-            audience="authenticated",
-            options={
-                "require_sub": True,
-                "require_exp": True,
-                "require_iat": True,
-            },
+        # Peek at the token header to determine the algorithm
+        header = pyjwt.get_unverified_header(token)
+        alg = header.get("alg", "HS256")
+
+        if alg == "ES256" and _jwks_client:
+            # ES256: verify with Supabase JWKS public key
+            signing_key = _jwks_client.get_signing_key_from_jwt(token)
+            payload = pyjwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["ES256"],
+                audience="authenticated",
+                options={"require": ["sub", "exp", "iat"]},
+            )
+        elif jwt_secret:
+            # HS256 fallback: verify with JWT secret
+            payload = pyjwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+                options={"require": ["sub", "exp", "iat"]},
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unsupported token algorithm",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    except JWTError:
+    except (pyjwt.InvalidTokenError, Exception) as e:
+        logger.warning("JWT validation failed: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
