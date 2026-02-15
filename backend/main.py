@@ -37,7 +37,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS — allow both local dev and production frontend
-cors_origins = ["http://localhost:3000"]
+cors_origins = [
+    "http://localhost:3000",
+    "https://marketing-ai-engine.vercel.app",
+]
 frontend_url = (Config.FRONTEND_URL or "").strip().rstrip("/")
 if frontend_url and frontend_url not in cors_origins:
     cors_origins.append(frontend_url)
