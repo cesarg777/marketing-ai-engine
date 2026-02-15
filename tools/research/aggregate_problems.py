@@ -45,6 +45,8 @@ def aggregate(
     raw_data: list[dict],
     niche: str,
     country: str,
+    decision_makers: list[str] | None = None,
+    keywords: list[str] | None = None,
 ) -> list[dict]:
     """Use Claude to analyze raw data and extract top 10 problems."""
     if not Config.ANTHROPIC_API_KEY:
@@ -57,7 +59,16 @@ def aggregate(
     if len(data_str) > 80000:
         data_str = data_str[:80000] + "\n... [truncated]"
 
-    user_prompt = f"""Analyze the following raw research data for the **{niche}** niche in **{country}**.
+    # Build context for decision makers and keywords
+    extra_context = ""
+    if decision_makers:
+        dm_list = ", ".join(decision_makers)
+        extra_context += f"\n\nTarget decision makers: {dm_list}. Focus on problems that these roles care about and would invest budget to solve."
+    if keywords:
+        kw_list = ", ".join(keywords)
+        extra_context += f"\n\nPriority keywords/topics: {kw_list}. Prioritize problems related to these terms."
+
+    user_prompt = f"""Analyze the following raw research data for the **{niche}** niche in **{country}**.{extra_context}
 
 Raw data from multiple sources:
 {data_str}

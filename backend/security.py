@@ -46,7 +46,7 @@ LANGUAGE_UPDATE_FIELDS = frozenset({
 })
 
 RESEARCH_CONFIG_UPDATE_FIELDS = frozenset({
-    "name", "niches", "countries", "is_active",
+    "name", "niches", "countries", "decision_makers", "keywords", "is_active",
 })
 
 

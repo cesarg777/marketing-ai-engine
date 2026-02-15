@@ -14,10 +14,14 @@ def run_research_pipeline(
     niches: list[str] | None = None,
     countries: list[str] | None = None,
     org_id: str = "",
+    decision_makers: list[str] | None = None,
+    keywords: list[str] | None = None,
 ) -> ResearchWeek:
     """Run the full research pipeline: scrape -> aggregate -> store."""
     niches = niches or Config.DEFAULT_NICHES
     countries = countries or Config.DEFAULT_COUNTRIES
+    decision_makers = decision_makers or []
+    keywords = keywords or []
 
     # Get or create week record
     week = (
@@ -36,7 +40,7 @@ def run_research_pipeline(
 
     try:
         # Step 1: Scrape all sources
-        raw_data = _scrape_all_sources(niches, countries)
+        raw_data = _scrape_all_sources(niches, countries, keywords=keywords)
         logger.info("Scraped %d raw data points from all sources", len(raw_data))
 
         # Step 2: Aggregate with Claude per niche/country
@@ -55,6 +59,8 @@ def run_research_pipeline(
                         raw_data=niche_data,
                         niche=niche,
                         country=country,
+                        decision_makers=decision_makers,
+                        keywords=keywords,
                     )
                 except Exception:
                     logger.exception("Aggregation failed for %s/%s", niche, country)
@@ -97,11 +103,15 @@ def run_research_pipeline(
     return week
 
 
-def _scrape_all_sources(niches: list[str], countries: list[str]) -> list[dict]:
+def _scrape_all_sources(niches: list[str], countries: list[str], keywords: list[str] | None = None) -> list[dict]:
     """Run all scrapers and collect raw data."""
     all_data = []
+    extra_terms = keywords or []
 
     # Google Trends + News (per niche/country)
+    # Combine niche with extra keywords for broader coverage
+    search_niches = list(niches) + [f"{n} {k}" for n in niches for k in extra_terms[:3]]
+
     for niche in niches:
         for country in countries:
             try:

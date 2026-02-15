@@ -52,9 +52,17 @@ interface ConfigFormData {
   name: string;
   niches: string[];
   countries: string[];
+  decision_makers: string[];
+  keywords: string[];
 }
 
-const EMPTY_FORM: ConfigFormData = { name: "", niches: [], countries: [] };
+const EMPTY_FORM: ConfigFormData = {
+  name: "",
+  niches: [],
+  countries: [],
+  decision_makers: [],
+  keywords: [],
+};
 
 export default function ResearchPage() {
   const [tab, setTab] = useState<Tab>("configs");
@@ -69,6 +77,8 @@ export default function ResearchPage() {
   const [form, setForm] = useState<ConfigFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
+  const [dmInput, setDmInput] = useState("");
+  const [kwInput, setKwInput] = useState("");
 
   const loadData = () => {
     setLoading(true);
@@ -100,9 +110,24 @@ export default function ResearchPage() {
     );
   };
 
+  const addTag = (field: "decision_makers" | "keywords", value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || form[field].includes(trimmed)) return;
+    setForm((prev) => ({ ...prev, [field]: [...prev[field], trimmed] }));
+  };
+
+  const removeTag = (field: "decision_makers" | "keywords", index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index),
+    }));
+  };
+
   const openCreateForm = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setDmInput("");
+    setKwInput("");
     setShowForm(true);
   };
 
@@ -112,7 +137,11 @@ export default function ResearchPage() {
       name: config.name,
       niches: [...config.niches],
       countries: [...config.countries],
+      decision_makers: [...(config.decision_makers || [])],
+      keywords: [...(config.keywords || [])],
     });
+    setDmInput("");
+    setKwInput("");
     setShowForm(true);
   };
 
@@ -279,7 +308,7 @@ export default function ResearchPage() {
               </div>
 
               {/* Countries */}
-              <div className="mb-5">
+              <div className="mb-4">
                 <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                   Countries
                 </label>
@@ -303,6 +332,118 @@ export default function ResearchPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Decision Makers */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                  Decision Makers
+                  <span className="ml-1 text-zinc-600 font-normal">
+                    (e.g. CMO, VP Marketing, Head of Growth)
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    value={dmInput}
+                    onChange={(e) => setDmInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTag("decision_makers", dmInput);
+                        setDmInput("");
+                      }
+                    }}
+                    placeholder="Type a role and press Enter"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      addTag("decision_makers", dmInput);
+                      setDmInput("");
+                    }}
+                    icon={<Plus size={12} />}
+                  >
+                    Add
+                  </Button>
+                </div>
+                {form.decision_makers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {form.decision_makers.map((dm, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-600/20 text-emerald-400 border border-emerald-600/30"
+                      >
+                        {dm}
+                        <button
+                          type="button"
+                          onClick={() => removeTag("decision_makers", i)}
+                          className="hover:text-emerald-200"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Keywords */}
+              <div className="mb-5">
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                  Keywords
+                  <span className="ml-1 text-zinc-600 font-normal">
+                    (e.g. inbound marketing, lead generation, account-based)
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    value={kwInput}
+                    onChange={(e) => setKwInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addTag("keywords", kwInput);
+                        setKwInput("");
+                      }
+                    }}
+                    placeholder="Type a keyword and press Enter"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      addTag("keywords", kwInput);
+                      setKwInput("");
+                    }}
+                    icon={<Plus size={12} />}
+                  >
+                    Add
+                  </Button>
+                </div>
+                {form.keywords.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {form.keywords.map((kw, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-600/20 text-amber-400 border border-amber-600/30"
+                      >
+                        {kw}
+                        <button
+                          type="button"
+                          onClick={() => removeTag("keywords", i)}
+                          className="hover:text-amber-200"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -371,6 +512,34 @@ export default function ResearchPage() {
                         )}
                       </div>
                     </div>
+                    {config.decision_makers?.length > 0 && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-zinc-600">
+                          Decision Makers
+                        </span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {config.decision_makers.map((dm) => (
+                            <Badge key={dm} size="sm" variant="success">
+                              {dm}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {config.keywords?.length > 0 && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-zinc-600">
+                          Keywords
+                        </span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {config.keywords.map((kw) => (
+                            <Badge key={kw} size="sm" variant="warning">
+                              {kw}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 pt-3 border-t border-[var(--border-subtle)]">

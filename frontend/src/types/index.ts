@@ -21,6 +21,8 @@ export interface ResearchConfig {
   name: string;
   niches: string[];
   countries: string[];
+  decision_makers: string[];
+  keywords: string[];
   is_active: boolean;
   created_at: string;
   updated_at: string | null;

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from backend.database import get_db, SessionLocal
@@ -17,6 +17,19 @@ from backend.security import validate_uuid, limiter, safe_update, RESEARCH_CONFI
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+STALE_RUNNING_MINUTES = 30
+
+
+def _reset_if_stale(week: ResearchWeek, db: Session) -> None:
+    """Reset a research week stuck in 'running' for too long."""
+    if week.status != "running":
+        return
+    elapsed = datetime.utcnow() - (week.created_at or datetime.utcnow())
+    if elapsed > timedelta(minutes=STALE_RUNNING_MINUTES):
+        logger.warning("Resetting stale research week %s (running for %s)", week.id, elapsed)
+        week.status = "failed"
+        db.commit()
 
 
 @router.get("/weeks", response_model=list[ResearchWeekResponse])
@@ -110,7 +123,14 @@ def get_problem(
     return problem
 
 
-def _run_research_background(week_start: date, niches: list[str], countries: list[str], org_id: str):
+def _run_research_background(
+    week_start: date,
+    niches: list[str],
+    countries: list[str],
+    org_id: str,
+    decision_makers: list[str] | None = None,
+    keywords: list[str] | None = None,
+):
     """Background task: run the research pipeline with its own DB session."""
     from backend.services.research_service import run_research_pipeline
 
@@ -123,6 +143,8 @@ def _run_research_background(week_start: date, niches: list[str], countries: lis
             niches=niches,
             countries=countries,
             org_id=org_id,
+            decision_makers=decision_makers or [],
+            keywords=keywords or [],
         )
         logger.info("Research pipeline completed: %d problems found", len(week.problems))
     except Exception:
@@ -152,6 +174,8 @@ def trigger_research(
         .filter(ResearchWeek.week_start == week_start, ResearchWeek.org_id == org_id)
         .first()
     )
+    if existing:
+        _reset_if_stale(existing, db)
     if existing and existing.status == "running":
         raise HTTPException(status_code=409, detail="Research already running for this week")
 
@@ -292,12 +316,16 @@ def run_config(
     week_start = date.today()
     niches = config.niches or []
     countries = config.countries or []
+    decision_makers = getattr(config, "decision_makers", None) or []
+    keywords = getattr(config, "keywords", None) or []
 
     existing_week = (
         db.query(ResearchWeek)
         .filter(ResearchWeek.week_start == week_start, ResearchWeek.org_id == org_id)
         .first()
     )
+    if existing_week:
+        _reset_if_stale(existing_week, db)
     if existing_week and existing_week.status == "running":
         raise HTTPException(status_code=409, detail="Research already running for this week")
 
@@ -307,7 +335,10 @@ def run_config(
         db.commit()
         db.refresh(existing_week)
 
-    background_tasks.add_task(_run_research_background, week_start, niches, countries, org_id)
+    background_tasks.add_task(
+        _run_research_background, week_start, niches, countries, org_id,
+        decision_makers=decision_makers, keywords=keywords,
+    )
 
     return {
         "week_id": existing_week.id,

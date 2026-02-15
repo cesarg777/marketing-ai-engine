@@ -61,11 +61,20 @@ export const createResearchConfig = (data: {
   name: string;
   niches: string[];
   countries: string[];
+  decision_makers: string[];
+  keywords: string[];
 }) => api.post("/research/configs", data);
 
 export const updateResearchConfig = (
   id: string,
-  data: { name?: string; niches?: string[]; countries?: string[]; is_active?: boolean }
+  data: {
+    name?: string;
+    niches?: string[];
+    countries?: string[];
+    decision_makers?: string[];
+    keywords?: string[];
+    is_active?: boolean;
+  }
 ) => api.put(`/research/configs/${id}`, data);
 
 export const deleteResearchConfig = (id: string) =>
