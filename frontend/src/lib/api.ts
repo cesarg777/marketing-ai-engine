@@ -187,21 +187,33 @@ export const createNewsletter = (contentIds: string[]) =>
 export const createLandingPage = (contentId: string) =>
   api.post("/amplification/landing-page", null, { params: { content_id: contentId } });
 
-// --- LinkedIn OAuth ---
-export const getLinkedInAuthUrl = () =>
-  api.get("/amplification/linkedin/auth-url");
+// --- Publishing Channel Connections ---
+export const connectLinkedIn = (data: { access_token: string }) =>
+  api.post("/amplification/linkedin/connect", data);
 
-export const connectWebflow = (data: { api_token: string; site_id: string; collection_id: string }) =>
+export const getLinkedInStatus = () =>
+  api.get("/amplification/linkedin/status");
+
+export const disconnectLinkedIn = () =>
+  api.delete("/amplification/linkedin/disconnect");
+
+export const connectWebflow = (data: { api_token: string; site_id: string }) =>
   api.post("/amplification/webflow/connect", data);
 
 export const getWebflowStatus = () =>
   api.get("/amplification/webflow/status");
 
-export const connectNewsletter = (data: { api_key: string }) =>
+export const disconnectWebflow = () =>
+  api.delete("/amplification/webflow/disconnect");
+
+export const connectNewsletter = (data: { api_key: string; from_email?: string }) =>
   api.post("/amplification/newsletter/connect", data);
 
 export const getNewsletterStatus = () =>
   api.get("/amplification/newsletter/status");
+
+export const disconnectNewsletter = () =>
+  api.delete("/amplification/newsletter/disconnect");
 
 // --- Metrics ---
 export const getDashboard = () => api.get("/metrics/dashboard");

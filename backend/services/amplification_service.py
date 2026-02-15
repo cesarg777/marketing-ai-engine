@@ -61,9 +61,18 @@ def compose_newsletter(db: Session, items: list[ContentItem]) -> dict:
     }
 
 
-def send_newsletter_email(db: Session, newsletter_id: str) -> dict:
-    """Send newsletter via Resend. Placeholder for MVP."""
-    return {"status": "not_implemented", "message": "Configure Resend API key to enable sending"}
+def send_newsletter_email(api_key: str, from_email: str, subject: str, html: str) -> dict:
+    """Send newsletter via Resend API using org's stored credentials."""
+    import resend
+    resend.api_key = api_key
+
+    result = resend.Emails.send({
+        "from": from_email,
+        "to": [],  # TODO: pull audience/recipients from org config
+        "subject": subject,
+        "html": html,
+    })
+    return {"id": result.get("id", ""), "status": "sent"}
 
 
 def create_webflow_landing(db: Session, source: ContentItem) -> dict:

@@ -1,15 +1,117 @@
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+import httpx
 from backend.database import get_db
 from backend.auth import get_current_org_id
-from backend.models.content import ContentItem
+from backend.models.content import ContentItem, Publication
 from backend.models.metrics import ContentMetric
-from backend.schemas.content import ContentItemResponse
+from backend.models.config import OrgConfig
+from backend.schemas.content import ContentItemResponse, PublicationResponse
 
 router = APIRouter()
 
+
+# ─── Pydantic models for channel connections ───
+
+class WebflowConnectRequest(BaseModel):
+    api_token: str = Field(..., min_length=5)
+    site_id: str = Field(..., min_length=1)
+    blog_collection_id: str = Field(default="")
+    landing_collection_id: str = Field(default="")
+
+
+class NewsletterConnectRequest(BaseModel):
+    api_key: str = Field(..., min_length=5)
+    from_email: str = Field(default="newsletter@siete.com")
+
+
+class LinkedInConnectRequest(BaseModel):
+    access_token: str = Field(..., min_length=10)
+
+
+class BatchPublishRequest(BaseModel):
+    content_ids: list[str]
+    channel: str = Field(..., max_length=30)
+
+
+# ─── Helpers ───
+
+def _get_org_config(db: Session, org_id: str, key: str) -> dict | None:
+    config = db.query(OrgConfig).filter(
+        OrgConfig.org_id == org_id, OrgConfig.key == key,
+    ).first()
+    if config and isinstance(config.value, dict):
+        return config.value
+    return None
+
+
+def _upsert_org_config(db: Session, org_id: str, key: str, value: dict):
+    existing = db.query(OrgConfig).filter(
+        OrgConfig.org_id == org_id, OrgConfig.key == key,
+    ).first()
+    if existing:
+        existing.value = value
+    else:
+        db.add(OrgConfig(org_id=org_id, key=key, value=value))
+    db.commit()
+
+
+def _delete_org_config(db: Session, org_id: str, key: str):
+    config = db.query(OrgConfig).filter(
+        OrgConfig.org_id == org_id, OrgConfig.key == key,
+    ).first()
+    if config:
+        db.delete(config)
+        db.commit()
+
+
+def _mask(value: str) -> str:
+    return "****" + value[-4:] if len(value) > 4 else "****"
+
+
+# ─── Content list for Amplify page ───
+
+@router.get("/content")
+def list_amplify_content(
+    status: str | None = None,
+    language: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """List all org content with publications for the Amplify page."""
+    query = (
+        db.query(ContentItem)
+        .options(joinedload(ContentItem.publications))
+        .filter(ContentItem.org_id == org_id)
+    )
+    if status:
+        query = query.filter(ContentItem.status == status)
+    if language:
+        query = query.filter(ContentItem.language == language)
+    query = query.order_by(ContentItem.created_at.desc())
+
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {
+        "items": [
+            {
+                "content": ContentItemResponse.model_validate(item),
+                "publications": [
+                    PublicationResponse.model_validate(pub) for pub in item.publications
+                ],
+            }
+            for item in items
+        ],
+        "total": total,
+    }
+
+
+# ─── Candidates (high-engagement) ───
 
 @router.get("/candidates")
 def list_amplification_candidates(
@@ -40,6 +142,8 @@ def list_amplification_candidates(
         for item, eng, imp in results
     ]
 
+
+# ─── Amplification actions ───
 
 @router.post("/blog", response_model=ContentItemResponse)
 def amplify_to_blog(
@@ -83,13 +187,23 @@ def create_newsletter(
 
 @router.post("/newsletter/send")
 def send_newsletter(
-    newsletter_id: str,
+    subject: str,
+    html: str,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
-    """Send a composed newsletter via Resend."""
+    """Send a composed newsletter via Resend using org's stored API key."""
+    config = _get_org_config(db, org_id, "resend_config")
+    if not config:
+        raise HTTPException(status_code=400, detail="Newsletter not configured. Connect Resend in Settings.")
+
     from backend.services.amplification_service import send_newsletter_email
-    result = send_newsletter_email(db=db, newsletter_id=newsletter_id)
+    result = send_newsletter_email(
+        api_key=config["api_key"],
+        from_email=config.get("from_email", "newsletter@siete.com"),
+        subject=subject,
+        html=html,
+    )
     return result
 
 
@@ -111,3 +225,241 @@ def create_landing_page(
     from backend.services.amplification_service import create_webflow_landing
     result = create_webflow_landing(db=db, source=item)
     return result
+
+
+# ─── Batch Publish ───
+
+@router.post("/batch-publish")
+def batch_publish(
+    data: BatchPublishRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Publish multiple content items to a channel."""
+    from backend.services.content_service import publish_content_item
+
+    items = (
+        db.query(ContentItem)
+        .filter(ContentItem.id.in_(data.content_ids), ContentItem.org_id == org_id)
+        .all()
+    )
+    if not items:
+        raise HTTPException(status_code=404, detail="No content found")
+
+    # For linkedin, verify connection
+    if data.channel == "linkedin":
+        config = _get_org_config(db, org_id, "linkedin_config")
+        if not config:
+            raise HTTPException(status_code=400, detail="LinkedIn not connected. Connect in Settings.")
+
+    results = []
+    errors = []
+    for item in items:
+        try:
+            pub = publish_content_item(db=db, item=item, channel=data.channel)
+            results.append(PublicationResponse.model_validate(pub))
+        except Exception as e:
+            errors.append({"content_id": item.id, "error": str(e)})
+
+    return {"published": results, "errors": errors}
+
+
+# ─── Channels list ───
+
+@router.get("/channels")
+def list_channels(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """List all publishing channels with connection status."""
+    linkedin = _get_org_config(db, org_id, "linkedin_config")
+    webflow = _get_org_config(db, org_id, "webflow_config")
+    resend = _get_org_config(db, org_id, "resend_config")
+
+    return [
+        {
+            "name": "linkedin",
+            "label": "LinkedIn",
+            "connected": linkedin is not None,
+            "profile_name": linkedin.get("profile_name", "") if linkedin else "",
+        },
+        {
+            "name": "webflow_blog",
+            "label": "Webflow Blog",
+            "connected": webflow is not None,
+        },
+        {
+            "name": "webflow_landing",
+            "label": "Webflow Landing",
+            "connected": webflow is not None,
+        },
+        {
+            "name": "newsletter",
+            "label": "Newsletter (Resend)",
+            "connected": resend is not None,
+        },
+    ]
+
+
+# ─── Webflow Connection ───
+
+@router.post("/webflow/connect")
+def connect_webflow(
+    data: WebflowConnectRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Save and verify Webflow API credentials."""
+    try:
+        resp = httpx.get(
+            f"https://api.webflow.com/v2/sites/{data.site_id}",
+            headers={"Authorization": f"Bearer {data.api_token}"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        site_name = resp.json().get("displayName", resp.json().get("name", ""))
+    except httpx.HTTPStatusError:
+        raise HTTPException(status_code=400, detail="Invalid Webflow credentials. Check your API token and site ID.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not connect to Webflow.")
+
+    _upsert_org_config(db, org_id, "webflow_config", {
+        "api_token": data.api_token,
+        "site_id": data.site_id,
+        "blog_collection_id": data.blog_collection_id,
+        "landing_collection_id": data.landing_collection_id,
+        "site_name": site_name,
+    })
+    return {"status": "connected", "site_name": site_name}
+
+
+@router.get("/webflow/status")
+def webflow_status(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    config = _get_org_config(db, org_id, "webflow_config")
+    if not config:
+        return {"connected": False}
+    return {
+        "connected": True,
+        "site_name": config.get("site_name", ""),
+        "masked_token": _mask(config.get("api_token", "")),
+    }
+
+
+@router.delete("/webflow/disconnect")
+def disconnect_webflow(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    _delete_org_config(db, org_id, "webflow_config")
+    return {"status": "disconnected"}
+
+
+# ─── Newsletter (Resend) Connection ───
+
+@router.post("/newsletter/connect")
+def connect_newsletter(
+    data: NewsletterConnectRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Save and verify Resend API key."""
+    try:
+        resp = httpx.get(
+            "https://api.resend.com/api-keys",
+            headers={"Authorization": f"Bearer {data.api_key}"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPStatusError:
+        raise HTTPException(status_code=400, detail="Invalid Resend API key.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not connect to Resend.")
+
+    _upsert_org_config(db, org_id, "resend_config", {
+        "api_key": data.api_key,
+        "from_email": data.from_email,
+    })
+    return {"status": "connected"}
+
+
+@router.get("/newsletter/status")
+def newsletter_status(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    config = _get_org_config(db, org_id, "resend_config")
+    if not config:
+        return {"connected": False}
+    return {
+        "connected": True,
+        "from_email": config.get("from_email", ""),
+        "masked_key": _mask(config.get("api_key", "")),
+    }
+
+
+@router.delete("/newsletter/disconnect")
+def disconnect_newsletter(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    _delete_org_config(db, org_id, "resend_config")
+    return {"status": "disconnected"}
+
+
+# ─── LinkedIn Connection ───
+
+@router.post("/linkedin/connect")
+def connect_linkedin(
+    data: LinkedInConnectRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Save and verify LinkedIn access token."""
+    try:
+        resp = httpx.get(
+            "https://api.linkedin.com/v2/userinfo",
+            headers={"Authorization": f"Bearer {data.access_token}"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        profile = resp.json()
+        profile_name = profile.get("name", profile.get("given_name", "LinkedIn User"))
+        profile_sub = profile.get("sub", "")
+    except httpx.HTTPStatusError:
+        raise HTTPException(status_code=400, detail="Invalid LinkedIn access token.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not connect to LinkedIn.")
+
+    _upsert_org_config(db, org_id, "linkedin_config", {
+        "access_token": data.access_token,
+        "profile_name": profile_name,
+        "profile_sub": profile_sub,
+    })
+    return {"status": "connected", "profile_name": profile_name}
+
+
+@router.get("/linkedin/status")
+def linkedin_status(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    config = _get_org_config(db, org_id, "linkedin_config")
+    if not config:
+        return {"connected": False}
+    return {
+        "connected": True,
+        "profile_name": config.get("profile_name", ""),
+        "masked_token": _mask(config.get("access_token", "")),
+    }
+
+
+@router.delete("/linkedin/disconnect")
+def disconnect_linkedin(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    _delete_org_config(db, org_id, "linkedin_config")
+    return {"status": "disconnected"}

@@ -105,6 +105,8 @@ def publish_content_item(
     channel: str,
 ) -> Publication:
     """Publish content to a specified channel."""
+    from backend.models.config import OrgConfig
+
     external_id = ""
     external_url = ""
 
@@ -123,15 +125,29 @@ def publish_content_item(
         result = send_single(item.content_data, item.language)
         external_id = result.get("id", "")
     elif channel == "linkedin":
-        # LinkedIn requires manual publishing for MVP
-        external_url = "manual"
+        # Use org's LinkedIn access token
+        config = db.query(OrgConfig).filter(
+            OrgConfig.org_id == item.org_id, OrgConfig.key == "linkedin_config",
+        ).first()
+        if config and isinstance(config.value, dict):
+            from tools.amplification.publish_linkedin import publish_post
+            result = publish_post(
+                access_token=config.value.get("access_token", ""),
+                profile_sub=config.value.get("profile_sub", ""),
+                content_data=item.content_data,
+                language=item.language,
+            )
+            external_id = result.get("id", "")
+            external_url = result.get("url", "")
+        else:
+            external_url = "manual"
 
     publication = Publication(
         content_item_id=item.id,
         channel=channel,
         external_id=external_id,
         external_url=external_url,
-        status="published" if external_url != "manual" else "pending_manual",
+        status="published" if external_url not in ("manual", "") else "pending_manual",
     )
     db.add(publication)
 

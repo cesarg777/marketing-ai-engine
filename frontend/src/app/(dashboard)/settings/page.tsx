@@ -9,6 +9,18 @@ import {
   uploadResource,
   createResourceNoFile,
   deleteResource,
+  connectHeygen,
+  getHeygenStatus,
+  disconnectHeygen,
+  connectWebflow,
+  getWebflowStatus,
+  disconnectWebflow,
+  connectNewsletter,
+  getNewsletterStatus,
+  disconnectNewsletter,
+  connectLinkedIn,
+  getLinkedInStatus,
+  disconnectLinkedIn,
 } from "@/lib/api";
 import type { Language, OrgResource, ResourceType } from "@/types";
 import {
@@ -24,6 +36,17 @@ import {
   Users,
   Building2,
   Palette,
+  Linkedin,
+  Globe,
+  Mail,
+  Link2,
+  Unlink,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  Circle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   PageHeader,
@@ -68,16 +91,54 @@ export default function SettingsPage() {
   const [newColorName, setNewColorName] = useState("");
   const [newColorHex, setNewColorHex] = useState("#6366f1");
 
+  // HeyGen connection state
+  const [heygenConnected, setHeygenConnected] = useState(false);
+  const [heygenMaskedKey, setHeygenMaskedKey] = useState("");
+  const [heygenApiKey, setHeygenApiKey] = useState("");
+  const [heygenLoading, setHeygenLoading] = useState(false);
+  const [heygenShowKey, setHeygenShowKey] = useState(false);
+
+  // Publishing channels state
+  const [linkedinStatus, setLinkedinStatus] = useState<{ connected: boolean; profile_name?: string; masked_token?: string }>({ connected: false });
+  const [webflowStatus, setWebflowStatus] = useState<{ connected: boolean; site_name?: string; masked_token?: string }>({ connected: false });
+  const [newsletterStat, setNewsletterStat] = useState<{ connected: boolean; from_email?: string; masked_key?: string }>({ connected: false });
+  const [channelLoading, setChannelLoading] = useState<string | null>(null);
+  const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
+  const [channelMsg, setChannelMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Channel form fields
+  const [liToken, setLiToken] = useState("");
+  const [wfToken, setWfToken] = useState("");
+  const [wfSiteId, setWfSiteId] = useState("");
+  const [nlApiKey, setNlApiKey] = useState("");
+  const [nlFromEmail, setNlFromEmail] = useState("newsletter@siete.com");
+
   const loadLanguages = () =>
     getLanguages().then((r) => setLanguages(r.data));
 
   const loadResources = () =>
     getResources().then((r) => setResources(r.data));
 
+  const loadHeygenStatus = () =>
+    getHeygenStatus()
+      .then((r) => {
+        setHeygenConnected(r.data.connected);
+        setHeygenMaskedKey(r.data.masked_key || "");
+      })
+      .catch(() => {});
+
+  const loadChannelStatuses = () => {
+    getLinkedInStatus().then((r) => setLinkedinStatus(r.data)).catch(() => {});
+    getWebflowStatus().then((r) => setWebflowStatus(r.data)).catch(() => {});
+    getNewsletterStatus().then((r) => setNewsletterStat(r.data)).catch(() => {});
+  };
+
   useEffect(() => {
     loadLanguages();
     loadResources();
     getResourceTypes().then((r) => setResourceTypes(r.data));
+    loadHeygenStatus();
+    loadChannelStatuses();
   }, []);
 
   const handleToggleLanguage = async (lang: Language) => {
@@ -153,6 +214,82 @@ export default function SettingsPage() {
       loadResources();
     } catch {
       setResourceError("Failed to delete resource.");
+    }
+  };
+
+  // HeyGen handlers
+  const handleConnectHeygen = async () => {
+    if (!heygenApiKey.trim()) return;
+    setHeygenLoading(true);
+    try {
+      await connectHeygen(heygenApiKey);
+      setHeygenApiKey("");
+      loadHeygenStatus();
+    } catch {
+      setChannelMsg({ type: "error", text: "Invalid HeyGen API key." });
+      setTimeout(() => setChannelMsg(null), 4000);
+    } finally {
+      setHeygenLoading(false);
+    }
+  };
+
+  const handleDisconnectHeygen = async () => {
+    setHeygenLoading(true);
+    try {
+      await disconnectHeygen();
+      setHeygenConnected(false);
+      setHeygenMaskedKey("");
+    } catch {
+      setChannelMsg({ type: "error", text: "Failed to disconnect HeyGen." });
+      setTimeout(() => setChannelMsg(null), 4000);
+    } finally {
+      setHeygenLoading(false);
+    }
+  };
+
+  // Channel connection handlers
+  const handleConnectChannel = async (channel: string) => {
+    setChannelLoading(channel);
+    setChannelMsg(null);
+    try {
+      if (channel === "linkedin") {
+        await connectLinkedIn({ access_token: liToken });
+        setLiToken("");
+      } else if (channel === "webflow") {
+        await connectWebflow({ api_token: wfToken, site_id: wfSiteId });
+        setWfToken("");
+        setWfSiteId("");
+      } else if (channel === "newsletter") {
+        await connectNewsletter({ api_key: nlApiKey, from_email: nlFromEmail });
+        setNlApiKey("");
+      }
+      setExpandedChannel(null);
+      setChannelMsg({ type: "success", text: `${channel} connected successfully.` });
+      setTimeout(() => setChannelMsg(null), 4000);
+      loadChannelStatuses();
+    } catch {
+      setChannelMsg({ type: "error", text: `Failed to connect ${channel}. Check your credentials.` });
+      setTimeout(() => setChannelMsg(null), 4000);
+    } finally {
+      setChannelLoading(null);
+    }
+  };
+
+  const handleDisconnectChannel = async (channel: string) => {
+    setChannelLoading(channel);
+    setChannelMsg(null);
+    try {
+      if (channel === "linkedin") await disconnectLinkedIn();
+      else if (channel === "webflow") await disconnectWebflow();
+      else if (channel === "newsletter") await disconnectNewsletter();
+      setChannelMsg({ type: "success", text: `${channel} disconnected.` });
+      setTimeout(() => setChannelMsg(null), 4000);
+      loadChannelStatuses();
+    } catch {
+      setChannelMsg({ type: "error", text: `Failed to disconnect ${channel}.` });
+      setTimeout(() => setChannelMsg(null), 4000);
+    } finally {
+      setChannelLoading(null);
     }
   };
 
@@ -437,53 +574,342 @@ export default function SettingsPage() {
       </FormSection>
 
       {/* Video Provider Section */}
-      <FormSection title="AI Video Provider">
+      <FormSection title="AI Video Provider" className="mb-6">
         <div className="space-y-1.5">
-          {[
-            {
-              id: "heygen",
-              name: "HeyGen",
-              desc: "175+ languages, lip-sync, best for multilingual",
-              isDefault: true,
-            },
-            {
-              id: "synthesia",
-              name: "Synthesia",
-              desc: "Enterprise-grade, SOC 2 compliance",
-              isDefault: false,
-            },
-            {
-              id: "did",
-              name: "D-ID",
-              desc: "Conversational AI, real-time interactions",
-              isDefault: false,
-            },
-          ].map((provider) => (
-            <div
-              key={provider.id}
-              className="flex items-center justify-between p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg"
-            >
+          {/* HeyGen — with connection UI */}
+          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between p-3">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
                   <Video size={14} className="text-zinc-500" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-zinc-200">
-                      {provider.name}
-                    </span>
-                    {provider.isDefault && (
-                      <Badge variant="info" size="sm">
-                        Default
-                      </Badge>
+                    <span className="text-sm font-medium text-zinc-200">HeyGen</span>
+                    <Badge variant="info" size="sm">Default</Badge>
+                    {heygenConnected && (
+                      <Badge variant="success" size="sm">Connected</Badge>
                     )}
                   </div>
-                  <span className="text-xs text-zinc-500">{provider.desc}</span>
+                  <span className="text-xs text-zinc-500">175+ languages, lip-sync, best for multilingual</span>
                 </div>
               </div>
-              <span className="text-[11px] text-zinc-600">Configure in .env</span>
+              {heygenConnected ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-zinc-500 font-mono">{heygenMaskedKey}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDisconnectHeygen}
+                    loading={heygenLoading}
+                    icon={<Unlink size={13} />}
+                  >
+                    Disconnect
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <input
+                      type={heygenShowKey ? "text" : "password"}
+                      placeholder="HeyGen API key"
+                      value={heygenApiKey}
+                      onChange={(e) => setHeygenApiKey(e.target.value)}
+                      className="w-48 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs text-zinc-200 pr-8"
+                      onKeyDown={(e) => e.key === "Enter" && handleConnectHeygen()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setHeygenShowKey(!heygenShowKey)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400"
+                    >
+                      {heygenShowKey ? <EyeOff size={12} /> : <Eye size={12} />}
+                    </button>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleConnectHeygen}
+                    loading={heygenLoading}
+                    disabled={!heygenApiKey.trim()}
+                    icon={<Link2 size={13} />}
+                  >
+                    Connect
+                  </Button>
+                </div>
+              )}
             </div>
-          ))}
+          </div>
+
+          {/* Synthesia — info only */}
+          <div className="flex items-center justify-between p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                <Video size={14} className="text-zinc-500" />
+              </div>
+              <div>
+                <span className="text-sm font-medium text-zinc-200">Synthesia</span>
+                <span className="text-xs text-zinc-500 block">Enterprise-grade, SOC 2 compliance</span>
+              </div>
+            </div>
+            <Badge variant="default" size="sm">Coming soon</Badge>
+          </div>
+
+          {/* D-ID — info only */}
+          <div className="flex items-center justify-between p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center">
+                <Video size={14} className="text-zinc-500" />
+              </div>
+              <div>
+                <span className="text-sm font-medium text-zinc-200">D-ID</span>
+                <span className="text-xs text-zinc-500 block">Conversational AI, real-time interactions</span>
+              </div>
+            </div>
+            <Badge variant="default" size="sm">Coming soon</Badge>
+          </div>
+        </div>
+      </FormSection>
+
+      {/* Publishing Channels Section */}
+      <FormSection title="Publishing Channels">
+        {channelMsg && (
+          <Alert variant={channelMsg.type} className="mb-4">
+            {channelMsg.text}
+          </Alert>
+        )}
+
+        <div className="space-y-1.5">
+          {/* LinkedIn */}
+          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+            <button
+              onClick={() => setExpandedChannel(expandedChannel === "linkedin" ? null : "linkedin")}
+              className="w-full flex items-center justify-between p-3 hover:bg-zinc-800/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#0077B5]/10 flex items-center justify-center">
+                  <Linkedin size={14} className="text-[#0077B5]" />
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-200">LinkedIn</span>
+                    {linkedinStatus.connected ? (
+                      <Badge variant="success" size="sm">Connected</Badge>
+                    ) : (
+                      <Badge variant="default" size="sm">Not connected</Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {linkedinStatus.connected
+                      ? linkedinStatus.profile_name
+                      : "Publish posts to your LinkedIn profile"}
+                  </span>
+                </div>
+              </div>
+              {expandedChannel === "linkedin" ? <ChevronUp size={14} className="text-zinc-500" /> : <ChevronDown size={14} className="text-zinc-500" />}
+            </button>
+            {expandedChannel === "linkedin" && (
+              <div className="px-3 pb-3 pt-1 border-t border-[var(--border-subtle)]">
+                {linkedinStatus.connected ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">Token: {linkedinStatus.masked_token}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDisconnectChannel("linkedin")}
+                      loading={channelLoading === "linkedin"}
+                      icon={<Unlink size={13} />}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-[11px] text-zinc-500">
+                      Paste your LinkedIn access token.{" "}
+                      <a
+                        href="https://www.linkedin.com/developers/apps"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-400 hover:underline"
+                      >
+                        Get it from LinkedIn Developer Portal →
+                      </a>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        placeholder="LinkedIn access token"
+                        value={liToken}
+                        onChange={(e) => setLiToken(e.target.value)}
+                        className="flex-1 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs text-zinc-200"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleConnectChannel("linkedin")}
+                        loading={channelLoading === "linkedin"}
+                        disabled={!liToken.trim()}
+                        icon={<Link2 size={13} />}
+                      >
+                        Connect
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Webflow */}
+          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+            <button
+              onClick={() => setExpandedChannel(expandedChannel === "webflow" ? null : "webflow")}
+              className="w-full flex items-center justify-between p-3 hover:bg-zinc-800/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#4353FF]/10 flex items-center justify-center">
+                  <Globe size={14} className="text-[#4353FF]" />
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-200">Webflow</span>
+                    {webflowStatus.connected ? (
+                      <Badge variant="success" size="sm">Connected</Badge>
+                    ) : (
+                      <Badge variant="default" size="sm">Not connected</Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {webflowStatus.connected
+                      ? webflowStatus.site_name
+                      : "Publish blog posts and landing pages to Webflow"}
+                  </span>
+                </div>
+              </div>
+              {expandedChannel === "webflow" ? <ChevronUp size={14} className="text-zinc-500" /> : <ChevronDown size={14} className="text-zinc-500" />}
+            </button>
+            {expandedChannel === "webflow" && (
+              <div className="px-3 pb-3 pt-1 border-t border-[var(--border-subtle)]">
+                {webflowStatus.connected ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">Token: {webflowStatus.masked_token}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDisconnectChannel("webflow")}
+                      loading={channelLoading === "webflow"}
+                      icon={<Unlink size={13} />}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        placeholder="Webflow API token"
+                        value={wfToken}
+                        onChange={(e) => setWfToken(e.target.value)}
+                        className="flex-1 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs text-zinc-200"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Site ID"
+                        value={wfSiteId}
+                        onChange={(e) => setWfSiteId(e.target.value)}
+                        className="w-40 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs text-zinc-200"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleConnectChannel("webflow")}
+                        loading={channelLoading === "webflow"}
+                        disabled={!wfToken.trim() || !wfSiteId.trim()}
+                        icon={<Link2 size={13} />}
+                      >
+                        Connect
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Newsletter (Resend) */}
+          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+            <button
+              onClick={() => setExpandedChannel(expandedChannel === "newsletter" ? null : "newsletter")}
+              className="w-full flex items-center justify-between p-3 hover:bg-zinc-800/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                  <Mail size={14} className="text-emerald-400" />
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-200">Newsletter (Resend)</span>
+                    {newsletterStat.connected ? (
+                      <Badge variant="success" size="sm">Connected</Badge>
+                    ) : (
+                      <Badge variant="default" size="sm">Not connected</Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {newsletterStat.connected
+                      ? `From: ${newsletterStat.from_email}`
+                      : "Send newsletters via Resend email API"}
+                  </span>
+                </div>
+              </div>
+              {expandedChannel === "newsletter" ? <ChevronUp size={14} className="text-zinc-500" /> : <ChevronDown size={14} className="text-zinc-500" />}
+            </button>
+            {expandedChannel === "newsletter" && (
+              <div className="px-3 pb-3 pt-1 border-t border-[var(--border-subtle)]">
+                {newsletterStat.connected ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-400">Key: {newsletterStat.masked_key}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDisconnectChannel("newsletter")}
+                      loading={channelLoading === "newsletter"}
+                      icon={<Unlink size={13} />}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        placeholder="Resend API key"
+                        value={nlApiKey}
+                        onChange={(e) => setNlApiKey(e.target.value)}
+                        className="flex-1 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs text-zinc-200"
+                      />
+                      <input
+                        type="email"
+                        placeholder="From email"
+                        value={nlFromEmail}
+                        onChange={(e) => setNlFromEmail(e.target.value)}
+                        className="w-48 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs text-zinc-200"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handleConnectChannel("newsletter")}
+                        loading={channelLoading === "newsletter"}
+                        disabled={!nlApiKey.trim()}
+                        icon={<Link2 size={13} />}
+                      >
+                        Connect
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </FormSection>
     </div>
