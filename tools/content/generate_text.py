@@ -26,8 +26,7 @@ Your writing style is:
 - Adapted to the target language and cultural context (not just translated — localized)
 - Engaging hooks that stop the scroll
 
-Always maintain Siete's brand voice regardless of language or content type.
-You MUST return ONLY a valid JSON object — no markdown, no code fences, no explanation."""
+Always maintain Siete's brand voice regardless of language or content type."""
 
 
 def _repair_json(raw: str) -> dict:
@@ -79,6 +78,61 @@ def _repair_json(raw: str) -> dict:
         raise ValueError(f"Could not parse JSON after repair attempts: {e}")
 
 
+def _build_tool_schema(template_structure: list[dict]) -> dict:
+    """Convert template_structure field definitions into a JSON Schema for tool_use."""
+    properties = {
+        "title": {"type": "string", "description": "Compelling title for this content piece"},
+    }
+    required = ["title"]
+
+    for field in template_structure:
+        name = field.get("name", "")
+        if not name or name == "title":
+            continue
+        field_type = field.get("type", "text")
+        desc = field.get("description", "")
+
+        if field_type in ("text", "textarea"):
+            prop = {"type": "string"}
+            if desc:
+                prop["description"] = desc
+        elif field_type == "array":
+            item_schema = field.get("item_schema", {})
+            item_props = {}
+            item_required = []
+            for sub_name, sub_def in item_schema.items():
+                item_props[sub_name] = {"type": "string"}
+                if sub_def.get("description"):
+                    item_props[sub_name]["description"] = sub_def["description"]
+                item_required.append(sub_name)
+            prop = {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": item_props,
+                    "required": item_required,
+                },
+            }
+            if desc:
+                prop["description"] = desc
+        else:
+            prop = {"type": "string"}
+
+        properties[name] = prop
+        if field.get("required", False):
+            required.append(name)
+
+    return {
+        "name": "generate_content",
+        "description": "Generate structured marketing content with all required fields.",
+        "input_schema": {
+            "type": "object",
+            "properties": properties,
+            "required": required,
+        },
+    }
+
+
 def generate(
     template_structure: list[dict],
     template_system_prompt: str,
@@ -89,13 +143,13 @@ def generate(
     tone: str = "professional",
     additional_instructions: str = "",
 ) -> dict:
-    """Generate structured content using Claude API."""
+    """Generate structured content using Claude API with tool_use for reliable output."""
     if not Config.ANTHROPIC_API_KEY:
         return _mock_content(template_structure, topic, language)
 
     client = anthropic.Anthropic(
         api_key=Config.ANTHROPIC_API_KEY,
-        timeout=120.0,  # 2-minute timeout for content generation
+        timeout=120.0,
     )
 
     # Build the system prompt
@@ -124,32 +178,42 @@ Tone: {tone}
 {context_block}
 {f'Additional instructions: {additional_instructions}' if additional_instructions else ''}
 
-The content must follow this JSON structure (each field defined below):
+The content must follow this structure (each field defined below):
 {structure_desc}
 
-Return a valid JSON object with all the required fields filled in.
-Include a "title" field with a compelling title for this content piece.
-IMPORTANT: Return ONLY the JSON object. No markdown fences. No explanation. Escape any newlines inside string values as \\n."""
+Use the generate_content tool to return the content with all required fields filled in."""
+
+    # Build tool definition from template structure
+    tool_def = _build_tool_schema(template_structure)
 
     try:
         response = client.messages.create(
             model=Config.ANTHROPIC_MODEL,
             max_tokens=4096,
             system=system,
-            messages=[
-                {"role": "user", "content": user_prompt},
-                {"role": "assistant", "content": "{"},  # Prefill to force JSON
-            ],
+            tools=[tool_def],
+            tool_choice={"type": "tool", "name": "generate_content"},
+            messages=[{"role": "user", "content": user_prompt}],
         )
     except anthropic.APITimeoutError:
         raise TimeoutError("Content generation timed out after 120 seconds. Please try again.")
     except anthropic.APIError as e:
         raise RuntimeError(f"Claude API error: {e}")
 
-    # Prepend the "{" we used as prefill
-    response_text = "{" + response.content[0].text
+    # Extract structured data from tool_use response — already a dict, no parsing needed
+    content = None
+    for block in response.content:
+        if block.type == "tool_use":
+            content = block.input
+            break
 
-    content = _repair_json(response_text)
+    if content is None:
+        # Fallback: try to parse text response (shouldn't happen with tool_choice)
+        text_parts = [b.text for b in response.content if hasattr(b, "text")]
+        if text_parts:
+            content = _repair_json("".join(text_parts))
+        else:
+            raise RuntimeError("Claude did not return content in expected format")
 
     # Add metadata
     content["_model"] = Config.ANTHROPIC_MODEL
