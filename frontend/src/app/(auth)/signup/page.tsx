@@ -43,8 +43,8 @@ export default function SignupPage() {
       {/* Brand mark — visible on mobile */}
       <div className="mb-10 lg:hidden">
         <h1 className="text-2xl font-bold tracking-tight">
-          <span className="text-white">Siete</span>
-          <span className="text-indigo-400">Engine</span>
+          <span className="text-white">Marketing</span>
+          <span className="text-indigo-400">AI</span>
         </h1>
       </div>
 

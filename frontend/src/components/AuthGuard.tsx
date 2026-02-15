@@ -29,7 +29,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           setOnboardingChecked(true);
         })
         .catch(() => {
-          // If the check fails, allow access (don't block the user)
+          // If the check fails, redirect to onboarding (user likely has no org)
+          if (pathname !== "/onboarding") {
+            router.replace("/onboarding");
+          }
           setOnboardingChecked(true);
         });
     }

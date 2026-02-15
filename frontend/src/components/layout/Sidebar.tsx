@@ -49,7 +49,7 @@ export default function Sidebar() {
       <div className="px-5 py-5 border-b border-[var(--border-subtle)]">
         <Link href="/" className="block">
           <h1 className="text-lg font-bold text-zinc-100 tracking-tight">
-            Siete<span className="text-indigo-400">Engine</span>
+            Marketing<span className="text-indigo-400">AI</span>
           </h1>
           <p className="text-[10px] text-zinc-600 mt-0.5 uppercase tracking-widest font-medium">
             AI Marketing Engine

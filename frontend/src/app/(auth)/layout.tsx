@@ -40,8 +40,8 @@ export default function AuthLayout({
               <div className="w-6 h-px bg-indigo-500/40" />
             </div>
             <h1 className="text-5xl font-bold tracking-tight">
-              <span className="text-white">Siete</span>
-              <span className="text-indigo-400">Engine</span>
+              <span className="text-white">Marketing</span>
+              <span className="text-indigo-400">AI</span>
             </h1>
           </div>
           <p className="text-zinc-500 text-lg leading-relaxed max-w-sm">

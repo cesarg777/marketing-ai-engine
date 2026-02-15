@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Siete Engine — AI Marketing",
+  title: "Marketing AI Engine",
   description: "AI-powered B2B content marketing engine",
 };
 

@@ -24,7 +24,7 @@ from backend.security import SecurityHeadersMiddleware, limiter
 from backend.routers import research, templates, content, amplification, metrics, languages, videos, onboarding, resources
 
 app = FastAPI(
-    title="Siete Marketing Engine",
+    title="Marketing AI Engine",
     description="AI-powered B2B content marketing engine",
     version="0.1.0",
 )
