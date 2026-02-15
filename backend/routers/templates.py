@@ -25,6 +25,7 @@ ALLOWED_ASSET_MIMES = {
 VALID_ASSET_TYPES = {
     "background_image", "header_image", "footer_image",
     "logo_placeholder", "layout_pdf", "custom_image",
+    "reference_file",
 }
 
 

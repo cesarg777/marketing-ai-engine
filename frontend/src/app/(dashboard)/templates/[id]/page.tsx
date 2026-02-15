@@ -59,6 +59,8 @@ const ASSET_TYPES = [
   { value: "custom_image", label: "Custom Image" },
 ];
 
+const REFERENCE_ASSET_TYPE = "reference_file";
+
 interface FieldDef {
   name: string;
   type: string;
@@ -94,6 +96,7 @@ export default function TemplateDetailPage({
   // Template Assets
   const [assets, setAssets] = useState<TemplateAsset[]>([]);
   const [uploadingAsset, setUploadingAsset] = useState(false);
+  const [uploadingRef, setUploadingRef] = useState(false);
   const [selectedAssetType, setSelectedAssetType] = useState("custom_image");
 
   const isSystem = template?.org_id === null;
@@ -196,6 +199,38 @@ export default function TemplateDetailPage({
       setError("Failed to delete asset.");
     }
   };
+
+  // Reference file upload
+  const handleRefUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingRef(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("asset_type", REFERENCE_ASSET_TYPE);
+      formData.append("name", file.name);
+      await uploadTemplateAsset(id, formData);
+      await loadAssets();
+      setSuccess("Reference file uploaded.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError("Failed to upload reference file.");
+      }
+    } finally {
+      setUploadingRef(false);
+      e.target.value = "";
+    }
+  };
+
+  // Derived lists: separate reference files from format assets
+  const referenceAssets = assets.filter((a) => a.asset_type === REFERENCE_ASSET_TYPE);
+  const formatAssets = assets.filter((a) => a.asset_type !== REFERENCE_ASSET_TYPE);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -504,6 +539,68 @@ export default function TemplateDetailPage({
           )}
         </FormSection>
 
+        {/* Reference Files (for AI vision) */}
+        {!isSystem && (
+          <FormSection title="Reference Files">
+            <p className="text-xs text-zinc-600 mb-3">
+              Upload PNG, JPG, or PDF files as visual references. The AI will see these images and match their style, layout, and format when generating content.
+            </p>
+
+            {referenceAssets.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                {referenceAssets.map((asset) => (
+                  <div
+                    key={asset.id}
+                    className="group relative bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-3 hover:border-[var(--border-hover)] transition-colors"
+                  >
+                    {asset.mime_type.startsWith("image/") && asset.file_url ? (
+                      <div className="mb-2 rounded overflow-hidden bg-zinc-900">
+                        <img
+                          src={asset.file_url}
+                          alt={asset.name}
+                          className="w-full h-20 object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText size={14} className="text-amber-400 shrink-0" />
+                      </div>
+                    )}
+                    <span className="text-xs text-zinc-300 truncate block">{asset.name}</span>
+                    <div className="text-[10px] text-zinc-600 mt-1">
+                      {(asset.file_size / 1024).toFixed(0)} KB
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAsset(asset.id)}
+                      className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-zinc-600 hover:text-red-400 transition-all"
+                      title="Delete reference"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <label className="block">
+              <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-[var(--border-subtle)] rounded-lg cursor-pointer hover:border-indigo-500/40 hover:bg-zinc-800/30 transition-colors">
+                <Upload size={16} className="text-zinc-500" />
+                <span className="text-sm text-zinc-500">
+                  {uploadingRef ? "Uploading..." : "Upload reference image or PDF"}
+                </span>
+              </div>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp,application/pdf"
+                onChange={handleRefUpload}
+                disabled={uploadingRef}
+                className="hidden"
+              />
+            </label>
+          </FormSection>
+        )}
+
         {/* Format & Assets */}
         {!isSystem && (
           <FormSection title="Format & Assets">
@@ -512,9 +609,9 @@ export default function TemplateDetailPage({
             </p>
 
             {/* Existing assets grid */}
-            {assets.length > 0 && (
+            {formatAssets.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                {assets.map((asset) => (
+                {formatAssets.map((asset) => (
                   <div
                     key={asset.id}
                     className="group relative bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-3 hover:border-[var(--border-hover)] transition-colors"

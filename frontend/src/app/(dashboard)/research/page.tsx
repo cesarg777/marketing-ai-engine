@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   getResearchProblems,
   getResearchConfigs,
@@ -7,6 +7,7 @@ import {
   updateResearchConfig,
   deleteResearchConfig,
   runResearchConfig,
+  getResearchWeekStatus,
   getICPProfile,
 } from "@/lib/api";
 import type { ResearchProblem, ResearchConfig } from "@/types";
@@ -74,6 +75,8 @@ export default function ResearchPage() {
   const [runningId, setRunningId] = useState<string | null>(null);
   const [dmInput, setDmInput] = useState("");
   const [kwInput, setKwInput] = useState("");
+  const [activeWeekId, setActiveWeekId] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Dynamic ICP-driven niches/countries
   const [availableNiches, setAvailableNiches] = useState<string[]>(FALLBACK_NICHES);
@@ -100,10 +103,11 @@ export default function ResearchPage() {
   }, []);
 
   useEffect(() => {
-    const params: Record<string, string | number> =
-      selectedNiche !== "all" ? { niche: selectedNiche } : {};
+    const params: Record<string, string | number> = {};
+    if (selectedNiche !== "all") params.niche = selectedNiche;
+    if (activeWeekId) params.week_id = activeWeekId;
     getResearchProblems(params).then((r) => setProblems(r.data));
-  }, [selectedNiche]);
+  }, [selectedNiche, activeWeekId]);
 
   const togglePill = (
     list: string[],
@@ -184,17 +188,46 @@ export default function ResearchPage() {
     }
   };
 
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
   const handleRun = async (id: string) => {
     setRunningId(id);
     try {
-      await runResearchConfig(id);
+      const res = await runResearchConfig(id);
+      const weekId = res.data.week_id as string;
+      setActiveWeekId(weekId);
       setTab("results");
-      const res = await getResearchProblems();
-      setProblems(res.data);
+      setProblems([]); // Clear old results immediately
+
+      // Poll for completion every 3 seconds
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = setInterval(async () => {
+        try {
+          const status = await getResearchWeekStatus(weekId);
+          if (status.data.status === "completed" || status.data.status === "failed") {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            setRunningId(null);
+            if (status.data.status === "completed") {
+              const problems = await getResearchProblems({ week_id: weekId });
+              setProblems(problems.data);
+            } else {
+              alert("Research run failed. Please try again.");
+            }
+          }
+        } catch {
+          // Polling error — keep trying
+        }
+      }, 3000);
     } catch {
       alert("Failed to run research.");
+      setRunningId(null);
     }
-    setRunningId(null);
   };
 
   const trendIcon = (dir: string) => {

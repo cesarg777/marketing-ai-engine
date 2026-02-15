@@ -10,12 +10,17 @@ Usage:
         --language es
 """
 import argparse
+import base64
 import json
+import logging
 import re
 
+import httpx
 import anthropic
 
 from tools.config import Config
+
+logger = logging.getLogger(__name__)
 
 BRAND_SYSTEM_PROMPT = """You are the content creation engine for Siete, a B2B company.
 
@@ -133,6 +138,26 @@ def _build_tool_schema(template_structure: list[dict]) -> dict:
     }
 
 
+def _fetch_image_as_base64(url: str, mime_type: str) -> dict | None:
+    """Download an image from URL and return a Claude image content block."""
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+        data = base64.standard_b64encode(resp.content).decode("utf-8")
+        # Normalize mime type for Claude API
+        media_type = mime_type
+        if media_type not in ("image/png", "image/jpeg", "image/gif", "image/webp"):
+            media_type = "image/png"  # default fallback
+        return {
+            "type": "image",
+            "source": {"type": "base64", "media_type": media_type, "data": data},
+        }
+    except Exception as e:
+        logger.warning("Failed to fetch reference image %s: %s", url, e)
+        return None
+
+
 def generate(
     template_structure: list[dict],
     template_system_prompt: str,
@@ -143,6 +168,7 @@ def generate(
     tone: str = "professional",
     additional_instructions: str = "",
     reference_urls: list[dict] | None = None,
+    reference_files: list[dict] | None = None,
 ) -> dict:
     """Generate structured content using Claude API with tool_use for reliable output."""
     if not Config.ANTHROPIC_API_KEY:
@@ -160,6 +186,8 @@ def generate(
     if reference_urls:
         urls_block = "\n".join(f"- {r.get('label', 'Reference')}: {r.get('url', '')}" for r in reference_urls)
         system += f"\n\nReference content (match the style and format of these sources):\n{urls_block}"
+    if reference_files:
+        system += "\n\nReference files have been provided as images. Match the visual style, layout, and format shown in those references."
 
     # Build the user prompt
     structure_desc = json.dumps(template_structure, indent=2)
@@ -190,6 +218,26 @@ Use the generate_content tool to return the content with all required fields fil
     # Build tool definition from template structure
     tool_def = _build_tool_schema(template_structure)
 
+    # Build user message content — text + optional reference images
+    user_content: list[dict] = []
+
+    # Add reference file images (Claude vision)
+    if reference_files:
+        for ref in reference_files:
+            url = ref.get("url", "")
+            mime = ref.get("mime_type", "")
+            name = ref.get("name", "Reference")
+            if mime.startswith("image/") and url:
+                img_block = _fetch_image_as_base64(url, mime)
+                if img_block:
+                    user_content.append({"type": "text", "text": f"Reference image — {name}:"})
+                    user_content.append(img_block)
+            elif mime == "application/pdf" and url:
+                # PDFs: mention in text context (Claude can't view PDFs as images natively)
+                user_content.append({"type": "text", "text": f"Reference PDF file: {name} (URL: {url})"})
+
+    user_content.append({"type": "text", "text": user_prompt})
+
     try:
         response = client.messages.create(
             model=Config.ANTHROPIC_MODEL,
@@ -197,7 +245,7 @@ Use the generate_content tool to return the content with all required fields fil
             system=system,
             tools=[tool_def],
             tool_choice={"type": "tool", "name": "generate_content"},
-            messages=[{"role": "user", "content": user_prompt}],
+            messages=[{"role": "user", "content": user_content}],
         )
     except anthropic.APITimeoutError:
         raise TimeoutError("Content generation timed out after 120 seconds. Please try again.")

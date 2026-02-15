@@ -73,6 +73,29 @@ def get_week(
     }
 
 
+@router.get("/weeks/{week_id}/status")
+def get_week_status(
+    week_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Lightweight status poll endpoint for research runs."""
+    validate_uuid(week_id, "week_id")
+    week = (
+        db.query(ResearchWeek)
+        .filter(ResearchWeek.id == week_id, ResearchWeek.org_id == org_id)
+        .first()
+    )
+    if not week:
+        raise HTTPException(status_code=404, detail="Research week not found")
+    _reset_if_stale(week, db)
+    return {
+        "week_id": week.id,
+        "status": week.status,
+        "problem_count": len(week.problems),
+    }
+
+
 @router.get("/problems", response_model=list[ResearchProblemResponse])
 def list_problems(
     niche: str | None = None,

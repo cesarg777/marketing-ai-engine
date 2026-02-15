@@ -37,7 +37,10 @@ def run_research_pipeline(
         db.commit()
         db.refresh(week)
 
+    # Clear old problems before re-running
+    db.query(ResearchProblem).filter(ResearchProblem.week_id == week.id).delete()
     week.status = "running"
+    week.completed_at = None
     db.commit()
 
     try:

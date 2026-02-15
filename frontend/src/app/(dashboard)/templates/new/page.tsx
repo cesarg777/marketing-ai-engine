@@ -305,7 +305,7 @@ export default function NewTemplatePage() {
             </div>
           )}
           <p className="text-xs text-zinc-700 mt-2">
-            You can upload format files (images, PDFs) after creating the template.
+            You can upload reference files (images, PDFs) and format assets after creating the template.
           </p>
         </FormSection>
 

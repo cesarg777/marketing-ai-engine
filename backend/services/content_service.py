@@ -3,6 +3,7 @@ import json
 from sqlalchemy.orm import Session
 from backend.models.content import ContentItem, Publication
 from backend.models.template import ContentTemplate
+from backend.models.template_asset import TemplateAsset
 from backend.models.research import ResearchProblem
 
 
@@ -31,6 +32,21 @@ def generate_content_item(
             "suggested_angles": problem.suggested_angles,
         }
 
+    # Fetch reference file assets for this template (images/PDFs for Claude vision)
+    ref_assets = (
+        db.query(TemplateAsset)
+        .filter(
+            TemplateAsset.template_id == template.id,
+            TemplateAsset.asset_type == "reference_file",
+        )
+        .order_by(TemplateAsset.sort_order, TemplateAsset.created_at)
+        .all()
+    )
+    reference_files = [
+        {"name": a.name, "url": a.file_url, "mime_type": a.mime_type}
+        for a in ref_assets
+    ]
+
     content_data = generate(
         template_structure=template.structure,
         template_system_prompt=template.system_prompt,
@@ -41,6 +57,7 @@ def generate_content_item(
         tone=tone,
         additional_instructions=additional_instructions,
         reference_urls=template.reference_urls or [],
+        reference_files=reference_files,
     )
 
     item = ContentItem(

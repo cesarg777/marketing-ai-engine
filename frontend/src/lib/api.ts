@@ -101,6 +101,11 @@ export const deleteResearchConfig = (id: string) =>
 export const runResearchConfig = (id: string) =>
   directApi.post(`/research/configs/${id}/run`); // uses directApi for long-running research
 
+export const getResearchWeekStatus = (weekId: string) =>
+  api.get<{ week_id: string; status: string; problem_count: number }>(
+    `/research/weeks/${weekId}/status`
+  );
+
 // --- Templates ---
 export const getTemplates = (activeOnly = false) =>
   api.get("/templates/", { params: activeOnly ? { active_only: true } : {} });
