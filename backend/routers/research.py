@@ -6,10 +6,14 @@ from sqlalchemy.orm import Session
 from backend.database import get_db, SessionLocal
 from backend.auth import get_current_org_id
 from backend.models.research import ResearchWeek, ResearchProblem
+from backend.models.research_config import ResearchConfig
 from backend.schemas.research import (
     ResearchTriggerRequest, ResearchProblemResponse, ResearchWeekResponse,
 )
-from backend.security import validate_uuid, limiter
+from backend.schemas.research_config import (
+    ResearchConfigCreate, ResearchConfigUpdate, ResearchConfigResponse,
+)
+from backend.security import validate_uuid, limiter, safe_update, RESEARCH_CONFIG_UPDATE_FIELDS
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -166,4 +170,151 @@ def trigger_research(
         "countries": countries,
         "status": "queued",
         "message": "Research pipeline started. Use GET /api/research/weeks/{week_id} to check status.",
+    }
+
+
+# ────────── Research Configs ──────────
+
+
+@router.get("/configs", response_model=list[ResearchConfigResponse])
+def list_configs(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    return (
+        db.query(ResearchConfig)
+        .filter(ResearchConfig.org_id == org_id, ResearchConfig.is_active == True)
+        .order_by(ResearchConfig.created_at.desc())
+        .all()
+    )
+
+
+@router.get("/configs/{config_id}", response_model=ResearchConfigResponse)
+def get_config(
+    config_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    validate_uuid(config_id, "config_id")
+    config = (
+        db.query(ResearchConfig)
+        .filter(ResearchConfig.id == config_id, ResearchConfig.org_id == org_id)
+        .first()
+    )
+    if not config:
+        raise HTTPException(status_code=404, detail="Research config not found")
+    return config
+
+
+@router.post("/configs", response_model=ResearchConfigResponse, status_code=201)
+def create_config(
+    data: ResearchConfigCreate,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    existing = (
+        db.query(ResearchConfig)
+        .filter(
+            ResearchConfig.org_id == org_id,
+            ResearchConfig.name == data.name,
+            ResearchConfig.is_active == True,
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="A config with this name already exists")
+    config = ResearchConfig(org_id=org_id, **data.model_dump())
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+@router.put("/configs/{config_id}", response_model=ResearchConfigResponse)
+def update_config(
+    config_id: str,
+    data: ResearchConfigUpdate,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    validate_uuid(config_id, "config_id")
+    config = (
+        db.query(ResearchConfig)
+        .filter(ResearchConfig.id == config_id, ResearchConfig.org_id == org_id)
+        .first()
+    )
+    if not config:
+        raise HTTPException(status_code=404, detail="Research config not found")
+    safe_update(config, data.model_dump(exclude_none=True), RESEARCH_CONFIG_UPDATE_FIELDS)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+@router.delete("/configs/{config_id}")
+def delete_config(
+    config_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    validate_uuid(config_id, "config_id")
+    config = (
+        db.query(ResearchConfig)
+        .filter(ResearchConfig.id == config_id, ResearchConfig.org_id == org_id)
+        .first()
+    )
+    if not config:
+        raise HTTPException(status_code=404, detail="Research config not found")
+    config.is_active = False
+    db.commit()
+    return {"detail": "Config deleted"}
+
+
+@router.post("/configs/{config_id}/run")
+@limiter.limit("5/minute")
+def run_config(
+    request: Request,
+    config_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Trigger research using a saved config's niches/countries."""
+    validate_uuid(config_id, "config_id")
+    config = (
+        db.query(ResearchConfig)
+        .filter(ResearchConfig.id == config_id, ResearchConfig.org_id == org_id)
+        .first()
+    )
+    if not config:
+        raise HTTPException(status_code=404, detail="Research config not found")
+
+    week_start = date.today()
+    niches = config.niches or []
+    countries = config.countries or []
+
+    existing_week = (
+        db.query(ResearchWeek)
+        .filter(ResearchWeek.week_start == week_start, ResearchWeek.org_id == org_id)
+        .first()
+    )
+    if existing_week and existing_week.status == "running":
+        raise HTTPException(status_code=409, detail="Research already running for this week")
+
+    if not existing_week:
+        existing_week = ResearchWeek(week_start=week_start, status="pending", org_id=org_id)
+        db.add(existing_week)
+        db.commit()
+        db.refresh(existing_week)
+
+    background_tasks.add_task(_run_research_background, week_start, niches, countries, org_id)
+
+    return {
+        "week_id": existing_week.id,
+        "config_id": config.id,
+        "config_name": config.name,
+        "week_start": str(week_start),
+        "niches": niches,
+        "countries": countries,
+        "status": "queued",
     }

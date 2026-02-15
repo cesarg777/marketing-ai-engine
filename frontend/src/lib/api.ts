@@ -51,6 +51,29 @@ export const triggerResearch = (data?: {
   countries?: string[];
 }) => api.post("/research/trigger", data || {});
 
+// --- Research Configs ---
+export const getResearchConfigs = () => api.get("/research/configs");
+
+export const getResearchConfig = (id: string) =>
+  api.get(`/research/configs/${id}`);
+
+export const createResearchConfig = (data: {
+  name: string;
+  niches: string[];
+  countries: string[];
+}) => api.post("/research/configs", data);
+
+export const updateResearchConfig = (
+  id: string,
+  data: { name?: string; niches?: string[]; countries?: string[]; is_active?: boolean }
+) => api.put(`/research/configs/${id}`, data);
+
+export const deleteResearchConfig = (id: string) =>
+  api.delete(`/research/configs/${id}`);
+
+export const runResearchConfig = (id: string) =>
+  api.post(`/research/configs/${id}/run`);
+
 // --- Templates ---
 export const getTemplates = (activeOnly = false) =>
   api.get("/templates/", { params: activeOnly ? { active_only: true } : {} });

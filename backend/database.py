@@ -38,7 +38,7 @@ def get_db():
 def create_tables():
     from backend.models import (  # noqa: F401
         Organization, UserProfile, Language,
-        ResearchWeek, ResearchProblem, ContentTemplate,
+        ResearchWeek, ResearchProblem, ResearchConfig, ContentTemplate,
         ContentItem, Publication, ContentMetric, WeeklyReport,
         VideoJob, OrgConfig, OrgResource,
     )

@@ -45,6 +45,10 @@ LANGUAGE_UPDATE_FIELDS = frozenset({
     "name", "native_name", "flag_emoji", "is_active",
 })
 
+RESEARCH_CONFIG_UPDATE_FIELDS = frozenset({
+    "name", "niches", "countries", "is_active",
+})
+
 
 def safe_update(obj, data_dict: dict, allowed_fields: frozenset) -> None:
     """Apply only allowed fields from data_dict to an ORM object."""

@@ -16,6 +16,16 @@ export interface ResearchWeek {
   completed_at: string | null;
 }
 
+export interface ResearchConfig {
+  id: string;
+  name: string;
+  niches: string[];
+  countries: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
 export interface ResearchProblem {
   id: string;
   week_id: string;
