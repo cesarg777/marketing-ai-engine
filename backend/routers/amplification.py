@@ -84,19 +84,21 @@ def list_amplify_content(
     org_id: str = Depends(get_current_org_id),
 ):
     """List all org content with publications for the Amplify page."""
-    query = (
-        db.query(ContentItem)
-        .options(joinedload(ContentItem.publications))
-        .filter(ContentItem.org_id == org_id)
-    )
+    base_query = db.query(ContentItem).filter(ContentItem.org_id == org_id)
     if status:
-        query = query.filter(ContentItem.status == status)
+        base_query = base_query.filter(ContentItem.status == status)
     if language:
-        query = query.filter(ContentItem.language == language)
-    query = query.order_by(ContentItem.created_at.desc())
+        base_query = base_query.filter(ContentItem.language == language)
 
-    total = query.count()
-    items = query.offset(offset).limit(limit).all()
+    total = base_query.count()
+    items = (
+        base_query.options(joinedload(ContentItem.publications))
+        .order_by(ContentItem.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .unique()
+        .all()
+    )
     return {
         "items": [
             {
