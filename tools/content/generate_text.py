@@ -142,6 +142,7 @@ def generate(
     country: str = "",
     tone: str = "professional",
     additional_instructions: str = "",
+    reference_urls: list[dict] | None = None,
 ) -> dict:
     """Generate structured content using Claude API with tool_use for reliable output."""
     if not Config.ANTHROPIC_API_KEY:
@@ -156,6 +157,9 @@ def generate(
     system = BRAND_SYSTEM_PROMPT
     if template_system_prompt:
         system += f"\n\nTemplate-specific instructions:\n{template_system_prompt}"
+    if reference_urls:
+        urls_block = "\n".join(f"- {r.get('label', 'Reference')}: {r.get('url', '')}" for r in reference_urls)
+        system += f"\n\nReference content (match the style and format of these sources):\n{urls_block}"
 
     # Build the user prompt
     structure_desc = json.dumps(template_structure, indent=2)

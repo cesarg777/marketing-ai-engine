@@ -23,11 +23,15 @@ class ContentTemplate(Base):
     visual_css = Column(Text, default="")
     system_prompt = Column(Text, default="")
     default_tone = Column(String(50), default="professional")
+    reference_urls = Column(JSON, default=list)  # [{label, url}]
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     content_items = relationship("ContentItem", back_populates="template")
+    assets = relationship("TemplateAsset", backref="template", cascade="all, delete-orphan",
+                          primaryjoin="ContentTemplate.id == TemplateAsset.template_id",
+                          foreign_keys="TemplateAsset.template_id")
 
     def __repr__(self):
         return f"<ContentTemplate [{self.content_type}] {self.name}>"

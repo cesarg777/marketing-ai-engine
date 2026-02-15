@@ -17,6 +17,7 @@ import {
   Spinner,
   EmptyState,
   Input,
+  ProgressOverlay,
 } from "@/components/ui";
 import {
   Search,
@@ -183,9 +184,9 @@ export default function ResearchPage() {
     setRunningId(id);
     try {
       await runResearchConfig(id);
-      alert(
-        "Research pipeline queued! Check the Results tab in a few minutes."
-      );
+      setTab("results");
+      const res = await getResearchProblems();
+      setProblems(res.data);
     } catch {
       alert("Failed to run research.");
     }
@@ -214,6 +215,19 @@ export default function ResearchPage() {
           ) : undefined
         }
       />
+
+      {/* Progress overlay for running research */}
+      {runningId && (
+        <ProgressOverlay
+          isActive={!!runningId}
+          steps={[
+            { label: "Connecting to research sources...", durationMs: 5000 },
+            { label: "Analyzing B2B problems...", durationMs: 45000 },
+            { label: "Ranking results...", durationMs: 5000 },
+          ]}
+          className="mb-6"
+        />
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-[var(--border-subtle)]">

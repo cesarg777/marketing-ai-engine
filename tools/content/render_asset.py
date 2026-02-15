@@ -41,6 +41,7 @@ def render(
     content_id: str | None = None,
     visual_layout_override: str | None = None,
     visual_css_override: str | None = None,
+    template_assets: list[dict] | None = None,
 ) -> dict:
     """Render content_data into a visual asset (PNG or PDF).
 
@@ -71,9 +72,16 @@ def render(
         )
         template = env.get_template(config["file"])
 
+    # Build assets dict keyed by asset_type for template access
+    assets_dict = {}
+    if template_assets:
+        for a in template_assets:
+            assets_dict[a.get("asset_type", "")] = a.get("file_url", "")
+
     rendered_html = template.render(
         **content_data,
         css_override=visual_css_override or "",
+        assets=assets_dict,
     )
 
     # Ensure output directory exists

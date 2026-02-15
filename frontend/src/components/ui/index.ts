@@ -33,3 +33,9 @@ export type { SpinnerProps } from "./Spinner";
 
 export { FormSection } from "./FormSection";
 export type { FormSectionProps } from "./FormSection";
+
+export { ProgressBar } from "./ProgressBar";
+export type { ProgressBarProps } from "./ProgressBar";
+
+export { ProgressOverlay } from "./ProgressOverlay";
+export type { ProgressOverlayProps, ProgressStep } from "./ProgressOverlay";

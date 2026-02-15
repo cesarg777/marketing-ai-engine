@@ -47,6 +47,25 @@ export interface ResearchProblem {
   created_at: string;
 }
 
+export interface ReferenceUrl {
+  label: string;
+  url: string;
+}
+
+export interface TemplateAsset {
+  id: string;
+  template_id: string;
+  org_id: string;
+  asset_type: string;
+  name: string;
+  file_url: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface ContentTemplate {
   id: string;
   org_id: string | null;
@@ -59,6 +78,7 @@ export interface ContentTemplate {
   visual_css: string;
   system_prompt: string;
   default_tone: string;
+  reference_urls: ReferenceUrl[];
   is_active: boolean;
   created_at: string;
   updated_at: string | null;
@@ -164,4 +184,15 @@ export interface Publication {
   external_url: string;
   published_at: string;
   status: string;
+}
+
+export interface AmplifyItem {
+  content: ContentItem;
+  publications: Publication[];
+}
+
+export interface PublishChannel {
+  name: string;
+  label: string;
+  connected: boolean;
 }

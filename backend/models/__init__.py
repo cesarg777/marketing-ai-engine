@@ -9,6 +9,7 @@ from backend.models.video import VideoJob
 from backend.models.config import OrgConfig
 from backend.models.resource import OrgResource
 from backend.models.research_config import ResearchConfig
+from backend.models.template_asset import TemplateAsset
 
 __all__ = [
     "Organization",
@@ -25,4 +26,5 @@ __all__ = [
     "VideoJob",
     "OrgConfig",
     "OrgResource",
+    "TemplateAsset",
 ]

@@ -32,6 +32,7 @@ import {
   Badge,
   Spinner,
   Card,
+  ProgressOverlay,
 } from "@/components/ui";
 
 export default function GeneratePageWrapper() {
@@ -318,6 +319,16 @@ function GeneratePage() {
         >
           {generating ? "Generating with Claude..." : "Generate Content"}
         </Button>
+
+        {/* Progress overlay for generation */}
+        <ProgressOverlay
+          isActive={generating}
+          steps={[
+            { label: "Preparing template...", durationMs: 2000 },
+            { label: "Generating content with AI...", durationMs: 30000 },
+            { label: "Saving content...", durationMs: 2000 },
+          ]}
+        />
 
         {/* Result Preview */}
         {result && (

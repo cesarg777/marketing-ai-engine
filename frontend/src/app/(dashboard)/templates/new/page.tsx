@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createTemplate } from "@/lib/api";
-import { LayoutTemplate, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { LayoutTemplate, ArrowLeft, Plus, Trash2, Link2, X } from "lucide-react";
+import type { ReferenceUrl } from "@/types";
 import Link from "next/link";
 import axios from "axios";
 import {
@@ -49,6 +50,7 @@ export default function NewTemplatePage() {
   const [fields, setFields] = useState<FieldDef[]>([
     { name: "", type: "text", required: true, description: "" },
   ]);
+  const [referenceUrls, setReferenceUrls] = useState<ReferenceUrl[]>([]);
 
   // Auto-generate slug from name
   useEffect(() => {
@@ -95,7 +97,9 @@ export default function NewTemplatePage() {
         ...(f.description ? { description: f.description } : {}),
       }));
 
-      await createTemplate({
+      const validUrls = referenceUrls.filter((r) => r.label.trim() && r.url.trim());
+
+      const res = await createTemplate({
         name: name.trim(),
         slug: slug.trim(),
         content_type: contentType,
@@ -103,9 +107,11 @@ export default function NewTemplatePage() {
         structure,
         system_prompt: systemPrompt.trim(),
         default_tone: defaultTone,
+        reference_urls: validUrls,
       });
 
-      router.push("/templates");
+      // Redirect to edit page so user can upload assets
+      router.push(`/templates/${res.data.id}`);
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data?.detail) {
         setError(err.response.data.detail);
@@ -249,6 +255,58 @@ export default function NewTemplatePage() {
               </div>
             ))}
           </div>
+        </FormSection>
+
+        {/* Reference URLs */}
+        <FormSection
+          title="Reference URLs"
+          actions={
+            <button
+              type="button"
+              onClick={() => setReferenceUrls([...referenceUrls, { label: "", url: "" }])}
+              className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              <Plus size={14} />
+              Add URL
+            </button>
+          }
+        >
+          <p className="text-xs text-zinc-600 mb-3">
+            Add links to your newsletter, blog, or other content so the AI can reference your style.
+          </p>
+          {referenceUrls.length === 0 ? (
+            <p className="text-sm text-zinc-600 py-2 text-center">No reference URLs yet.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {referenceUrls.map((ref, idx) => (
+                <div key={idx} className="grid grid-cols-[1fr_2fr_auto] gap-3 items-center bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Link2 size={14} className="text-zinc-600 shrink-0" />
+                    <input
+                      type="text"
+                      value={ref.label}
+                      onChange={(e) => setReferenceUrls(referenceUrls.map((r, i) => i === idx ? { ...r, label: e.target.value } : r))}
+                      placeholder="Label"
+                      className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors w-full"
+                    />
+                  </div>
+                  <input
+                    type="url"
+                    value={ref.url}
+                    onChange={(e) => setReferenceUrls(referenceUrls.map((r, i) => i === idx ? { ...r, url: e.target.value } : r))}
+                    placeholder="https://..."
+                    className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-2.5 py-1.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors"
+                  />
+                  <button type="button" onClick={() => setReferenceUrls(referenceUrls.filter((_, i) => i !== idx))} className="p-1 rounded-md hover:bg-red-500/10 text-zinc-600 hover:text-red-400 transition-colors">
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-zinc-700 mt-2">
+            You can upload format files (images, PDFs) after creating the template.
+          </p>
         </FormSection>
 
         {/* System Prompt */}

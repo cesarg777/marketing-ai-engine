@@ -1,4 +1,5 @@
 from __future__ import annotations
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -6,6 +7,7 @@ from backend.database import get_db
 from backend.auth import get_current_org_id
 from backend.models.video import VideoJob
 from backend.models.content import ContentItem
+from backend.models.config import OrgConfig
 from backend.security import validate_uuid, limiter
 
 router = APIRouter()
@@ -125,12 +127,95 @@ def check_video_status(
 @router.get("/providers/{provider_name}/avatars")
 def list_avatars(
     provider_name: str,
+    db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
     """List available avatars for a video provider."""
     from tools.content.video_engine import get_provider
+    # Use org's API key if available
+    api_key = _get_org_heygen_key(db, org_id) if provider_name == "heygen" else None
     try:
-        provider = get_provider(provider_name)
+        provider = get_provider(provider_name, api_key=api_key)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unknown provider: {provider_name}")
     return provider.list_avatars()
+
+
+# ─── HeyGen Connection ───
+
+def _get_org_heygen_key(db: Session, org_id: str) -> str | None:
+    """Get the org's stored HeyGen API key from OrgConfig."""
+    config = db.query(OrgConfig).filter(
+        OrgConfig.org_id == org_id, OrgConfig.key == "heygen_api_key",
+    ).first()
+    if config and config.value:
+        return config.value.get("api_key") if isinstance(config.value, dict) else None
+    return None
+
+
+class HeyGenConnectRequest(BaseModel):
+    api_key: str = Field(..., min_length=5)
+
+
+@router.post("/providers/heygen/connect")
+def connect_heygen(
+    data: HeyGenConnectRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Save HeyGen API key and verify it works."""
+    # Test the key
+    try:
+        resp = httpx.get(
+            "https://api.heygen.com/v2/avatars",
+            headers={"X-Api-Key": data.api_key},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        avatars = resp.json().get("data", {}).get("avatars", [])
+        avatar_count = len(avatars)
+    except httpx.HTTPStatusError:
+        raise HTTPException(status_code=400, detail="Invalid HeyGen API key.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not connect to HeyGen. Check your API key.")
+
+    # Upsert in OrgConfig
+    existing = db.query(OrgConfig).filter(
+        OrgConfig.org_id == org_id, OrgConfig.key == "heygen_api_key",
+    ).first()
+    if existing:
+        existing.value = {"api_key": data.api_key}
+    else:
+        config = OrgConfig(org_id=org_id, key="heygen_api_key", value={"api_key": data.api_key})
+        db.add(config)
+    db.commit()
+
+    return {"status": "connected", "avatar_count": avatar_count}
+
+
+@router.get("/providers/heygen/status")
+def heygen_status(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Check HeyGen connection status."""
+    api_key = _get_org_heygen_key(db, org_id)
+    if not api_key:
+        return {"connected": False}
+    masked = "****" + api_key[-4:] if len(api_key) > 4 else "****"
+    return {"connected": True, "masked_key": masked}
+
+
+@router.delete("/providers/heygen/disconnect")
+def disconnect_heygen(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Remove HeyGen API key."""
+    config = db.query(OrgConfig).filter(
+        OrgConfig.org_id == org_id, OrgConfig.key == "heygen_api_key",
+    ).first()
+    if config:
+        db.delete(config)
+        db.commit()
+    return {"status": "disconnected"}

@@ -118,6 +118,18 @@ export const deleteTemplate = (id: string) => api.delete(`/templates/${id}`);
 export const duplicateTemplate = (id: string) =>
   api.post(`/templates/${id}/duplicate`);
 
+// --- Template Assets ---
+export const getTemplateAssets = (templateId: string) =>
+  api.get(`/templates/${templateId}/assets`);
+
+export const uploadTemplateAsset = (templateId: string, data: FormData) =>
+  api.post(`/templates/${templateId}/assets/upload`, data, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
+export const deleteTemplateAsset = (templateId: string, assetId: string) =>
+  api.delete(`/templates/${templateId}/assets/${assetId}`);
+
 // --- Content ---
 export const getContentItems = (params?: Record<string, string | number>) =>
   api.get("/content/", { params });
@@ -157,6 +169,15 @@ export const renderContent = (id: string) =>
 export const getAmplificationCandidates = () =>
   api.get("/amplification/candidates");
 
+export const getAmplifyContent = (params?: Record<string, string | number>) =>
+  api.get("/amplification/content", { params });
+
+export const getPublishChannels = () =>
+  api.get("/amplification/channels");
+
+export const batchPublish = (contentIds: string[], channel: string) =>
+  directApi.post("/amplification/batch-publish", { content_ids: contentIds, channel });
+
 export const amplifyToBlog = (contentId: string) =>
   api.post("/amplification/blog", null, { params: { content_id: contentId } });
 
@@ -165,6 +186,22 @@ export const createNewsletter = (contentIds: string[]) =>
 
 export const createLandingPage = (contentId: string) =>
   api.post("/amplification/landing-page", null, { params: { content_id: contentId } });
+
+// --- LinkedIn OAuth ---
+export const getLinkedInAuthUrl = () =>
+  api.get("/amplification/linkedin/auth-url");
+
+export const connectWebflow = (data: { api_token: string; site_id: string; collection_id: string }) =>
+  api.post("/amplification/webflow/connect", data);
+
+export const getWebflowStatus = () =>
+  api.get("/amplification/webflow/status");
+
+export const connectNewsletter = (data: { api_key: string }) =>
+  api.post("/amplification/newsletter/connect", data);
+
+export const getNewsletterStatus = () =>
+  api.get("/amplification/newsletter/status");
 
 // --- Metrics ---
 export const getDashboard = () => api.get("/metrics/dashboard");
@@ -202,6 +239,16 @@ export const getVideoStatus = (id: string) => api.get(`/videos/${id}/status`);
 
 export const getProviderAvatars = (provider: string) =>
   api.get(`/videos/providers/${provider}/avatars`);
+
+// --- HeyGen Connection ---
+export const connectHeygen = (apiKey: string) =>
+  api.post("/videos/providers/heygen/connect", { api_key: apiKey });
+
+export const getHeygenStatus = () =>
+  api.get("/videos/providers/heygen/status");
+
+export const disconnectHeygen = () =>
+  api.delete("/videos/providers/heygen/disconnect");
 
 // --- Resources ---
 export const getResources = (resourceType?: string) =>

@@ -40,6 +40,7 @@ def generate_content_item(
         country=country or "",
         tone=tone,
         additional_instructions=additional_instructions,
+        reference_urls=template.reference_urls or [],
     )
 
     item = ContentItem(
