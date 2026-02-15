@@ -100,17 +100,22 @@ def generate_content(
         raise HTTPException(status_code=400, detail="Provide either problem_id or custom_topic")
 
     from backend.services.content_service import generate_content_item
-    item = generate_content_item(
-        db=db,
-        template=template,
-        problem=problem,
-        topic=topic,
-        language=data.language,
-        country=data.country,
-        tone=data.tone,
-        additional_instructions=data.additional_instructions,
-        org_id=org_id,
-    )
+    try:
+        item = generate_content_item(
+            db=db,
+            template=template,
+            problem=problem,
+            topic=topic,
+            language=data.language,
+            country=data.country,
+            tone=data.tone,
+            additional_instructions=data.additional_instructions,
+            org_id=org_id,
+        )
+    except TimeoutError as e:
+        raise HTTPException(status_code=504, detail=str(e))
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=str(e))
     return item
 
 

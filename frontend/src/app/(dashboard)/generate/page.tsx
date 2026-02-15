@@ -156,8 +156,19 @@ function GeneratePage() {
       });
       setResult(res.data);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Generation failed";
+      let message = "Generation failed";
+      if (err && typeof err === "object" && "response" in err) {
+        const resp = (err as { response?: { data?: { detail?: string }; status?: number } }).response;
+        if (resp?.data?.detail) {
+          message = resp.data.detail;
+        } else if (resp?.status === 504) {
+          message = "Content generation timed out. Please try again.";
+        }
+      } else if (err && typeof err === "object" && "code" in err && (err as { code?: string }).code === "ECONNABORTED") {
+        message = "Request timed out. The AI is taking too long — please try again.";
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
       setError(message);
     }
     setGenerating(false);

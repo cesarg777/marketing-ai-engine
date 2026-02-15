@@ -4,10 +4,11 @@ import { supabase } from "./supabase";
 const api = axios.create({
   baseURL: "/api",
   headers: { "Content-Type": "application/json" },
+  timeout: 30000, // 30s default timeout
 });
 
 // Attach Supabase JWT to every request
-api.interceptors.request.use(async (config) => {
+const attachAuth = async (config: import("axios").InternalAxiosRequestConfig) => {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -15,7 +16,24 @@ api.interceptors.request.use(async (config) => {
     config.headers.Authorization = `Bearer ${session.access_token}`;
   }
   return config;
-});
+};
+
+api.interceptors.request.use(attachAuth);
+
+// Direct backend client — bypasses Vercel proxy to avoid its ~30s timeout
+// Used for long-running AI operations (content generation, translation, etc.)
+const backendUrl = process.env.NEXT_PUBLIC_API_URL || "";
+const directApi = backendUrl
+  ? axios.create({
+      baseURL: `${backendUrl}/api`,
+      headers: { "Content-Type": "application/json" },
+      timeout: 150000, // 2.5 min for AI operations
+    })
+  : api; // fallback to proxy in local dev
+
+if (backendUrl) {
+  directApi.interceptors.request.use(attachAuth);
+}
 
 // --- Languages ---
 export const getLanguages = (activeOnly = false) =>
@@ -81,7 +99,7 @@ export const deleteResearchConfig = (id: string) =>
   api.delete(`/research/configs/${id}`);
 
 export const runResearchConfig = (id: string) =>
-  api.post(`/research/configs/${id}/run`);
+  directApi.post(`/research/configs/${id}/run`); // uses directApi for long-running research
 
 // --- Templates ---
 export const getTemplates = (activeOnly = false) =>
@@ -114,7 +132,7 @@ export const generateContent = (data: {
   country?: string;
   tone?: string;
   additional_instructions?: string;
-}) => api.post("/content/generate", data);
+}) => directApi.post("/content/generate", data); // uses directApi to bypass Vercel proxy timeout
 
 export const updateContent = (id: string, data: Record<string, unknown>) =>
   api.put(`/content/${id}`, data);
@@ -124,7 +142,7 @@ export const deleteContent = (id: string) => api.delete(`/content/${id}`);
 export const translateContent = (
   id: string,
   data: { target_language: string; target_country?: string }
-) => api.post(`/content/${id}/translate`, data);
+) => directApi.post(`/content/${id}/translate`, data); // uses directApi for AI operations
 
 export const publishContent = (id: string, channel: string) =>
   api.post(`/content/${id}/publish`, { channel });

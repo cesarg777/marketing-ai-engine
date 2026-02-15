@@ -43,7 +43,10 @@ def generate(
     if not Config.ANTHROPIC_API_KEY:
         return _mock_content(template_structure, topic, language)
 
-    client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+    client = anthropic.Anthropic(
+        api_key=Config.ANTHROPIC_API_KEY,
+        timeout=120.0,  # 2-minute timeout for content generation
+    )
 
     # Build the system prompt
     system = BRAND_SYSTEM_PROMPT
@@ -77,12 +80,17 @@ The content must follow this JSON structure (each field defined below):
 Return a valid JSON object with all the required fields filled in.
 Include a "title" field with a compelling title for this content piece."""
 
-    response = client.messages.create(
-        model=Config.ANTHROPIC_MODEL,
-        max_tokens=4096,
-        system=system,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
+    try:
+        response = client.messages.create(
+            model=Config.ANTHROPIC_MODEL,
+            max_tokens=4096,
+            system=system,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+    except anthropic.APITimeoutError:
+        raise TimeoutError("Content generation timed out after 120 seconds. Please try again.")
+    except anthropic.APIError as e:
+        raise RuntimeError(f"Claude API error: {e}")
 
     response_text = response.content[0].text
 
