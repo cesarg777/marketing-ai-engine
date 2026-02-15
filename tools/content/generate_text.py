@@ -11,6 +11,7 @@ Usage:
 """
 import argparse
 import json
+import re
 
 import anthropic
 
@@ -26,7 +27,56 @@ Your writing style is:
 - Engaging hooks that stop the scroll
 
 Always maintain Siete's brand voice regardless of language or content type.
-When generating content, return ONLY valid JSON matching the requested structure."""
+You MUST return ONLY a valid JSON object — no markdown, no code fences, no explanation."""
+
+
+def _repair_json(raw: str) -> dict:
+    """Best-effort repair of malformed JSON from Claude responses."""
+    # Strip markdown code fences if present
+    raw = re.sub(r'^```(?:json)?\s*', '', raw.strip())
+    raw = re.sub(r'\s*```$', '', raw.strip())
+
+    # Extract outermost JSON object
+    start = raw.find("{")
+    end = raw.rfind("}") + 1
+    if start == -1 or end == 0:
+        raise ValueError("No JSON object found in response")
+    json_str = raw[start:end]
+
+    # Attempt 1: parse as-is
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        pass
+
+    # Attempt 2: fix trailing commas before } or ]
+    cleaned = re.sub(r',\s*([}\]])', r'\1', json_str)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    # Attempt 3: fix unescaped newlines inside string values
+    # Replace literal newlines that are inside quotes with \\n
+    fixed = re.sub(
+        r'"([^"]*)"',
+        lambda m: '"' + m.group(1).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t') + '"',
+        cleaned,
+    )
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError:
+        pass
+
+    # Attempt 4: fix unescaped control characters globally
+    fixed2 = cleaned.encode('unicode_escape').decode('ascii')
+    # Re-decode the escaped unicode back but keep control chars escaped
+    # Actually, a simpler approach: just remove control chars except \n\r\t
+    fixed3 = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', cleaned)
+    try:
+        return json.loads(fixed3)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Could not parse JSON after repair attempts: {e}")
 
 
 def generate(
@@ -78,39 +128,28 @@ The content must follow this JSON structure (each field defined below):
 {structure_desc}
 
 Return a valid JSON object with all the required fields filled in.
-Include a "title" field with a compelling title for this content piece."""
+Include a "title" field with a compelling title for this content piece.
+IMPORTANT: Return ONLY the JSON object. No markdown fences. No explanation. Escape any newlines inside string values as \\n."""
 
     try:
         response = client.messages.create(
             model=Config.ANTHROPIC_MODEL,
             max_tokens=4096,
             system=system,
-            messages=[{"role": "user", "content": user_prompt}],
+            messages=[
+                {"role": "user", "content": user_prompt},
+                {"role": "assistant", "content": "{"},  # Prefill to force JSON
+            ],
         )
     except anthropic.APITimeoutError:
         raise TimeoutError("Content generation timed out after 120 seconds. Please try again.")
     except anthropic.APIError as e:
         raise RuntimeError(f"Claude API error: {e}")
 
-    response_text = response.content[0].text
+    # Prepend the "{" we used as prefill
+    response_text = "{" + response.content[0].text
 
-    # Parse JSON from response — Claude sometimes returns extra text or trailing commas
-    start = response_text.find("{")
-    end = response_text.rfind("}") + 1
-    if start == -1 or end == 0:
-        raise ValueError("Claude did not return valid JSON content")
-
-    json_str = response_text[start:end]
-    try:
-        content = json.loads(json_str)
-    except json.JSONDecodeError:
-        # Clean common JSON issues: trailing commas before } or ]
-        import re
-        cleaned = re.sub(r',\s*([}\]])', r'\1', json_str)
-        try:
-            content = json.loads(cleaned)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Claude returned malformed JSON: {e}")
+    content = _repair_json(response_text)
 
     # Add metadata
     content["_model"] = Config.ANTHROPIC_MODEL
