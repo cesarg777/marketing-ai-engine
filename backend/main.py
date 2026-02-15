@@ -38,8 +38,13 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS — allow both local dev and production frontend
 cors_origins = ["http://localhost:3000"]
-if Config.FRONTEND_URL and Config.FRONTEND_URL not in cors_origins:
-    cors_origins.append(Config.FRONTEND_URL)
+frontend_url = (Config.FRONTEND_URL or "").strip().rstrip("/")
+if frontend_url and frontend_url not in cors_origins:
+    cors_origins.append(frontend_url)
+
+logger_startup = logging.getLogger(__name__)
+logger_startup.info("CORS origins: %s", cors_origins)
+logger_startup.info("FRONTEND_URL raw: %r", Config.FRONTEND_URL)
 
 app.add_middleware(
     CORSMiddleware,
