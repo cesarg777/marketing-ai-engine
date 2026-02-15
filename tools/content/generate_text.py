@@ -94,13 +94,23 @@ Include a "title" field with a compelling title for this content piece."""
 
     response_text = response.content[0].text
 
-    # Parse JSON from response
+    # Parse JSON from response — Claude sometimes returns extra text or trailing commas
     start = response_text.find("{")
     end = response_text.rfind("}") + 1
     if start == -1 or end == 0:
         raise ValueError("Claude did not return valid JSON content")
 
-    content = json.loads(response_text[start:end])
+    json_str = response_text[start:end]
+    try:
+        content = json.loads(json_str)
+    except json.JSONDecodeError:
+        # Clean common JSON issues: trailing commas before } or ]
+        import re
+        cleaned = re.sub(r',\s*([}\]])', r'\1', json_str)
+        try:
+            content = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Claude returned malformed JSON: {e}")
 
     # Add metadata
     content["_model"] = Config.ANTHROPIC_MODEL
