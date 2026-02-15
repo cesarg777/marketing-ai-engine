@@ -47,7 +47,7 @@ export default function AuthLayout({
           <p className="text-zinc-500 text-lg leading-relaxed max-w-sm">
             AI-powered content marketing
             <br />
-            <span className="text-zinc-600">for B2B teams that move fast.</span>
+            <span className="text-zinc-600">for teams that move fast.</span>
           </p>
           <div className="mt-10 flex items-center gap-6 text-[11px] text-zinc-600 uppercase tracking-widest">
             <span>Research</span>

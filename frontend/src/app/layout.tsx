@@ -4,7 +4,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
   title: "Marketing AI Engine",
-  description: "AI-powered B2B content marketing engine",
+  description: "AI-powered content marketing engine",
 };
 
 export default function RootLayout({

@@ -21,6 +21,9 @@ import {
   connectLinkedIn,
   getLinkedInStatus,
   disconnectLinkedIn,
+  connectGA4,
+  getGA4Status,
+  disconnectGA4,
   getICPProfile,
   saveICPProfile,
 } from "@/lib/api";
@@ -50,6 +53,7 @@ import {
   Eye,
   EyeOff,
   Target,
+  BarChart3,
 } from "lucide-react";
 import {
   PageHeader,
@@ -146,6 +150,14 @@ export default function SettingsPage() {
   const [icpDmInput, setIcpDmInput] = useState("");
   const [icpKwInput, setIcpKwInput] = useState("");
 
+  // GA4 connection state
+  const [ga4Status, setGa4Status] = useState<{ connected: boolean; property_id?: string; client_email?: string }>({ connected: false });
+  const [ga4Loading, setGa4Loading] = useState(false);
+  const [ga4Expanded, setGa4Expanded] = useState(false);
+  const [ga4Json, setGa4Json] = useState("");
+  const [ga4PropertyId, setGa4PropertyId] = useState("");
+  const [ga4Msg, setGa4Msg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   const loadLanguages = () =>
     getLanguages().then((r) => setLanguages(r.data));
 
@@ -183,6 +195,49 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setIcpLoading(false));
+  };
+
+  const loadGA4Status = () => {
+    getGA4Status()
+      .then((r) => setGa4Status(r.data))
+      .catch(() => {});
+  };
+
+  const handleConnectGA4 = async () => {
+    if (!ga4Json.trim() || !ga4PropertyId.trim()) return;
+    setGa4Loading(true);
+    setGa4Msg(null);
+    try {
+      const res = await connectGA4({ service_account_json: ga4Json, property_id: ga4PropertyId });
+      setGa4Status(res.data);
+      setGa4Json("");
+      setGa4PropertyId("");
+      setGa4Expanded(false);
+      setGa4Msg({ type: "success", text: "Google Analytics 4 connected." });
+      setTimeout(() => setGa4Msg(null), 4000);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "Failed to connect GA4.";
+      setGa4Msg({ type: "error", text: msg });
+      setTimeout(() => setGa4Msg(null), 6000);
+    } finally {
+      setGa4Loading(false);
+    }
+  };
+
+  const handleDisconnectGA4 = async () => {
+    setGa4Loading(true);
+    setGa4Msg(null);
+    try {
+      await disconnectGA4();
+      setGa4Status({ connected: false });
+      setGa4Msg({ type: "success", text: "GA4 disconnected." });
+      setTimeout(() => setGa4Msg(null), 4000);
+    } catch {
+      setGa4Msg({ type: "error", text: "Failed to disconnect GA4." });
+      setTimeout(() => setGa4Msg(null), 4000);
+    } finally {
+      setGa4Loading(false);
+    }
   };
 
   const handleSaveICP = async () => {
@@ -230,6 +285,7 @@ export default function SettingsPage() {
     loadHeygenStatus();
     loadChannelStatuses();
     loadICPProfile();
+    loadGA4Status();
   }, []);
 
   const handleToggleLanguage = async (lang: Language) => {
@@ -1072,7 +1128,7 @@ export default function SettingsPage() {
       </FormSection>
 
       {/* Publishing Channels Section */}
-      <FormSection title="Publishing Channels">
+      <FormSection title="Publishing Channels" className="mb-6">
         {channelMsg && (
           <Alert variant={channelMsg.type} className="mb-4">
             {channelMsg.text}
@@ -1305,6 +1361,132 @@ export default function SettingsPage() {
                       >
                         Connect
                       </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </FormSection>
+
+      {/* Analytics Integrations Section */}
+      <FormSection title="Analytics Integrations">
+        {ga4Msg && (
+          <Alert variant={ga4Msg.type} className="mb-4">
+            {ga4Msg.text}
+          </Alert>
+        )}
+
+        <div className="space-y-1.5">
+          {/* LinkedIn Analytics — reuses publishing token */}
+          <div className="flex items-center justify-between p-3 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#0077B5]/10 flex items-center justify-center">
+                <Linkedin size={14} className="text-[#0077B5]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-200">LinkedIn Analytics</span>
+                  {linkedinStatus.connected ? (
+                    <Badge variant="success" size="sm">Available</Badge>
+                  ) : (
+                    <Badge variant="default" size="sm">Not available</Badge>
+                  )}
+                </div>
+                <span className="text-xs text-zinc-500">
+                  {linkedinStatus.connected
+                    ? "Analytics available via your publishing connection"
+                    : "Connect LinkedIn in Publishing Channels above to enable analytics"}
+                </span>
+              </div>
+            </div>
+            {linkedinStatus.connected && (
+              <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+            )}
+          </div>
+
+          {/* Google Analytics 4 */}
+          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+            <button
+              onClick={() => setGa4Expanded(!ga4Expanded)}
+              className="w-full flex items-center justify-between p-3 hover:bg-zinc-800/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                  <BarChart3 size={14} className="text-orange-400" />
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-zinc-200">Google Analytics 4</span>
+                    {ga4Status.connected ? (
+                      <Badge variant="success" size="sm">Connected</Badge>
+                    ) : (
+                      <Badge variant="default" size="sm">Not connected</Badge>
+                    )}
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {ga4Status.connected
+                      ? `Property: ${ga4Status.property_id}`
+                      : "Connect with a service account to sync site analytics"}
+                  </span>
+                </div>
+              </div>
+              {ga4Expanded ? <ChevronUp size={14} className="text-zinc-500" /> : <ChevronDown size={14} className="text-zinc-500" />}
+            </button>
+            {ga4Expanded && (
+              <div className="px-3 pb-3 pt-1 border-t border-[var(--border-subtle)]">
+                {ga4Status.connected ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-zinc-400 space-y-0.5">
+                        <div>Property ID: <span className="text-zinc-200 font-mono">{ga4Status.property_id}</span></div>
+                        <div>Service Account: <span className="text-zinc-200">{ga4Status.client_email}</span></div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDisconnectGA4}
+                        loading={ga4Loading}
+                        icon={<Unlink size={13} />}
+                      >
+                        Disconnect
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-[11px] text-zinc-500">
+                      Create a service account in Google Cloud Console, enable the Analytics Data API,
+                      and share your GA4 property with the service account email.
+                    </p>
+                    <div className="space-y-2">
+                      <textarea
+                        placeholder="Paste your service account JSON here..."
+                        value={ga4Json}
+                        onChange={(e) => setGa4Json(e.target.value)}
+                        rows={4}
+                        className="w-full bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-xs text-zinc-200 font-mono resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="GA4 Property ID (e.g. 123456789)"
+                          value={ga4PropertyId}
+                          onChange={(e) => setGa4PropertyId(e.target.value)}
+                          className="flex-1 bg-[var(--surface-base)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs text-zinc-200"
+                          onKeyDown={(e) => e.key === "Enter" && handleConnectGA4()}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleConnectGA4}
+                          loading={ga4Loading}
+                          disabled={!ga4Json.trim() || !ga4PropertyId.trim()}
+                          icon={<Link2 size={13} />}
+                        >
+                          Connect
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}

@@ -4,7 +4,7 @@ from backend.models.language import Language
 from backend.models.research import ResearchWeek, ResearchProblem
 from backend.models.template import ContentTemplate
 from backend.models.content import ContentItem, Publication
-from backend.models.metrics import ContentMetric, WeeklyReport
+from backend.models.metrics import ContentMetric, WeeklyReport, PlatformMetric
 from backend.models.video import VideoJob
 from backend.models.config import OrgConfig
 from backend.models.resource import OrgResource
@@ -23,6 +23,7 @@ __all__ = [
     "Publication",
     "ContentMetric",
     "WeeklyReport",
+    "PlatformMetric",
     "VideoJob",
     "OrgConfig",
     "OrgResource",

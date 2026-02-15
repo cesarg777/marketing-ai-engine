@@ -6,6 +6,31 @@ from sqlalchemy.orm import relationship
 from backend.database import Base
 
 
+class PlatformMetric(Base):
+    """Site-level metrics from external platforms (GA4, LinkedIn, etc.)"""
+    __tablename__ = "platform_metrics"
+    __table_args__ = (
+        UniqueConstraint("org_id", "platform", "date", "page_path", name="uq_platform_metric"),
+    )
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
+    platform = Column(String(50), nullable=False)  # "ga4", "linkedin"
+    date = Column(Date, nullable=False)
+    page_path = Column(String(500), default="/")  # "/" for aggregate, "/blog/..." for page-level
+    sessions = Column(Integer, default=0)
+    pageviews = Column(Integer, default=0)
+    users = Column(Integer, default=0)
+    impressions = Column(Integer, default=0)
+    clicks = Column(Integer, default=0)
+    engagement = Column(Integer, default=0)
+    extra_data = Column(JSON, default=dict)  # Platform-specific data
+    created_at = Column(DateTime, server_default=func.now())
+
+    def __repr__(self):
+        return f"<PlatformMetric [{self.platform}] {self.date} {self.page_path}>"
+
+
 class ContentMetric(Base):
     __tablename__ = "content_metrics"
 

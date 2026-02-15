@@ -25,7 +25,7 @@ from backend.routers import research, templates, content, amplification, metrics
 
 app = FastAPI(
     title="Marketing AI Engine",
-    description="AI-powered B2B content marketing engine",
+    description="AI-powered content marketing engine",
     version="0.1.0",
 )
 

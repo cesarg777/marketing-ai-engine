@@ -290,6 +290,26 @@ export const updateResource = (id: string, data: FormData) =>
 
 export const deleteResource = (id: string) => api.delete(`/resources/${id}`);
 
+// --- GA4 Connection ---
+export const connectGA4 = (data: { service_account_json: string; property_id: string }) =>
+  api.post("/settings/ga4/connect", data);
+
+export const getGA4Status = () =>
+  api.get<{ connected: boolean; property_id?: string; client_email?: string }>("/settings/ga4/status");
+
+export const disconnectGA4 = () => api.delete("/settings/ga4/disconnect");
+
+// --- Analytics Sync ---
+export const syncLinkedInAnalytics = () =>
+  directApi.post("/metrics/sync/linkedin");
+
+export const syncGA4Analytics = () =>
+  directApi.post("/metrics/sync/ga4");
+
+// --- Platform Metrics ---
+export const getPlatformMetrics = (platform: string, days = 30) =>
+  api.get(`/metrics/platform/${platform}`, { params: { days } });
+
 // --- ICP Profile ---
 export interface ICPProfile {
   industries: string[];

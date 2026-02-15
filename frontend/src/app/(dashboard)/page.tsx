@@ -64,7 +64,7 @@ export default function Dashboard() {
       href: "/research",
       icon: Search,
       title: "Run Research",
-      desc: "Discover trending B2B problems",
+      desc: "Discover trending problems",
     },
     {
       href: "/templates",
@@ -119,7 +119,7 @@ export default function Dashboard() {
               <TrendingUp size={16} className="text-indigo-400" strokeWidth={1.8} />
             </div>
             <h2 className="text-sm font-semibold text-white">
-              Trending B2B Problems
+              Trending Problems
             </h2>
           </div>
           <Link

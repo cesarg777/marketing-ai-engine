@@ -225,7 +225,7 @@ function GeneratePage() {
               setCustomTopic(e.target.value);
               if (e.target.value) setSelectedProblem("");
             }}
-            placeholder="e.g., How to reduce B2B churn in SaaS"
+            placeholder="e.g., How to reduce churn in SaaS companies"
           />
         </FormSection>
 

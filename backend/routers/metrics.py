@@ -1,16 +1,17 @@
 from __future__ import annotations
 import logging
-from datetime import date
+from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.database import get_db
 from backend.auth import get_current_org_id
 from backend.models.content import ContentItem
-from backend.models.metrics import ContentMetric, WeeklyReport
+from backend.models.metrics import ContentMetric, WeeklyReport, PlatformMetric
 from backend.models.template import ContentTemplate
 from backend.schemas.metrics import (
     MetricImportRequest, MetricResponse, DashboardResponse, WeeklyReportResponse,
+    PlatformMetricResponse, SyncSummary,
 )
 from backend.security import validate_csv_upload, validate_uuid
 
@@ -212,3 +213,63 @@ def generate_weekly_report(
     from backend.services.metrics_service import generate_report
     report = generate_report(db=db, week_start=week_start, org_id=org_id)
     return WeeklyReportResponse.model_validate(report)
+
+
+# ─── Platform Analytics Sync ───
+
+@router.post("/sync/linkedin", response_model=SyncSummary)
+def sync_linkedin_analytics(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Sync metrics from LinkedIn (requires LinkedIn connected in Publishing Channels)."""
+    from backend.services.linkedin_analytics import sync_metrics
+    try:
+        result = sync_metrics(db, org_id)
+        return SyncSummary(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("LinkedIn sync failed for org %s", org_id)
+        raise HTTPException(status_code=500, detail=f"LinkedIn sync failed: {str(e)[:200]}")
+
+
+@router.post("/sync/ga4", response_model=SyncSummary)
+def sync_ga4_analytics(
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Sync metrics from Google Analytics 4 (requires GA4 connected in Settings)."""
+    from backend.services.ga4_analytics import sync_metrics
+    try:
+        result = sync_metrics(db, org_id)
+        return SyncSummary(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("GA4 sync failed for org %s", org_id)
+        raise HTTPException(status_code=500, detail=f"GA4 sync failed: {str(e)[:200]}")
+
+
+@router.get("/platform/{platform}", response_model=list[PlatformMetricResponse])
+def get_platform_metrics(
+    platform: str,
+    days: int = 30,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Get synced platform metrics for the last N days."""
+    if platform not in ("linkedin", "ga4"):
+        raise HTTPException(status_code=400, detail="Platform must be 'linkedin' or 'ga4'.")
+    since = date.today() - timedelta(days=days)
+    return (
+        db.query(PlatformMetric)
+        .filter(
+            PlatformMetric.org_id == org_id,
+            PlatformMetric.platform == platform,
+            PlatformMetric.date >= since,
+        )
+        .order_by(PlatformMetric.date.desc())
+        .limit(500)
+        .all()
+    )

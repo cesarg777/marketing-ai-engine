@@ -50,3 +50,26 @@ class WeeklyReportResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class PlatformMetricResponse(BaseModel):
+    id: str
+    org_id: str
+    platform: str
+    date: date
+    page_path: str
+    sessions: int
+    pageviews: int
+    users: int
+    impressions: int
+    clicks: int
+    engagement: int
+    extra_data: dict
+
+    model_config = {"from_attributes": True}
+
+
+class SyncSummary(BaseModel):
+    platform: str
+    synced: int
+    summary: dict
