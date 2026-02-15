@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from tools.config import Config
-from backend.database import create_tables
+from backend.database import create_tables, run_migrations
 from backend.auth import get_current_user
 from backend.security import SecurityHeadersMiddleware, limiter
 from backend.routers import research, templates, content, amplification, metrics, languages, videos, onboarding, resources, settings
@@ -83,6 +83,7 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 def on_startup():
     create_tables()
+    run_migrations()
     # Log seed data status
     from backend.database import SessionLocal
     from sqlalchemy import text

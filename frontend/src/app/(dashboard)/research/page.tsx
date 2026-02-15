@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import {
   getResearchProblems,
   getResearchConfigs,
+  getResearchWeeks,
   createResearchConfig,
   updateResearchConfig,
   deleteResearchConfig,
@@ -82,14 +83,30 @@ export default function ResearchPage() {
   const [availableNiches, setAvailableNiches] = useState<string[]>(FALLBACK_NICHES);
   const [availableCountries, setAvailableCountries] = useState<string[]>(FALLBACK_COUNTRIES);
 
-  const loadData = () => {
+  const loadData = async () => {
     setLoading(true);
-    Promise.all([getResearchConfigs(), getResearchProblems()])
-      .then(([c, p]) => {
-        setConfigs(c.data);
-        setProblems(p.data);
-      })
-      .finally(() => setLoading(false));
+    try {
+      const [configsRes, weeksRes] = await Promise.all([
+        getResearchConfigs(),
+        getResearchWeeks(20),
+      ]);
+      setConfigs(configsRes.data);
+
+      // Default to most recent week (list is sorted desc by backend)
+      const weeks = weeksRes.data;
+      if (weeks.length > 0 && !activeWeekId) {
+        setActiveWeekId(weeks[0].id);
+        // Fetch problems filtered by the latest week
+        const problemsRes = await getResearchProblems({ week_id: weeks[0].id });
+        setProblems(problemsRes.data);
+      } else if (!activeWeekId) {
+        // No weeks yet — load all (will be empty)
+        const problemsRes = await getResearchProblems();
+        setProblems(problemsRes.data);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

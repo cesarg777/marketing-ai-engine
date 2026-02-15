@@ -1,6 +1,7 @@
+import logging
 import sys
 from pathlib import Path
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Add project root to path so tools.config is importable
@@ -43,3 +44,28 @@ def create_tables():
         VideoJob, OrgConfig, OrgResource, TemplateAsset,
     )
     Base.metadata.create_all(bind=engine)
+
+
+def run_migrations():
+    """Add missing columns to existing tables. Idempotent — safe to run on every startup."""
+    logger = logging.getLogger(__name__)
+    with engine.connect() as conn:
+        inspector = inspect(engine)
+        # Map of (table, column) → SQL to add it
+        migrations = [
+            (
+                "content_templates",
+                "reference_urls",
+                "ALTER TABLE content_templates ADD COLUMN reference_urls JSONB DEFAULT '[]'::jsonb"
+                if not is_sqlite
+                else "ALTER TABLE content_templates ADD COLUMN reference_urls TEXT DEFAULT '[]'",
+            ),
+        ]
+        for table, column, ddl in migrations:
+            existing = [c["name"] for c in inspector.get_columns(table)]
+            if column not in existing:
+                logger.info("Migration: adding %s.%s", table, column)
+                conn.execute(text(ddl))
+                conn.commit()
+            else:
+                logger.debug("Column %s.%s already exists — skipping", table, column)
