@@ -158,7 +158,9 @@ class HeyGenConnectRequest(BaseModel):
 
 
 @router.post("/providers/heygen/connect")
+@limiter.limit("5/minute")
 def connect_heygen(
+    request: Request,
     data: HeyGenConnectRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),

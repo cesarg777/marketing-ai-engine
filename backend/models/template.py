@@ -13,7 +13,7 @@ class ContentTemplate(Base):
     )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=True)  # NULL = system template
+    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=True, index=True)  # NULL = system template
     name = Column(String(100), nullable=False)
     slug = Column(String(100), nullable=False)
     content_type = Column(String(50), nullable=False)
@@ -23,7 +23,7 @@ class ContentTemplate(Base):
     visual_css = Column(Text, default="")
     system_prompt = Column(Text, default="")
     default_tone = Column(String(50), default="professional")
-    reference_urls = Column(JSON, default=list)  # [{label, url}]
+    reference_urls = Column(JSON, default=lambda: [])  # [{label, url}]
     design_source = Column(JSON, nullable=True)  # {provider, file_key, field_map, ...}
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())

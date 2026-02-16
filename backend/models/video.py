@@ -22,7 +22,7 @@ class VideoJob(Base):
     thumbnail_url = Column(String(500), default="")
     duration_seconds = Column(Integer, default=0)
     error_message = Column(Text, default="")
-    extra_data = Column(JSON, default=dict)
+    extra_data = Column(JSON, default=lambda: {})
     created_at = Column(DateTime, server_default=func.now())
     completed_at = Column(DateTime, nullable=True)
 

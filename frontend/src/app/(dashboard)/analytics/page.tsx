@@ -82,20 +82,26 @@ export default function AnalyticsPage() {
   const [ga4Metrics, setGa4Metrics] = useState<PlatformMetricRow[]>([]);
 
   const loadDashboard = () =>
-    getDashboard().then((r) => setData(r.data)).catch(() => {});
+    getDashboard()
+      .then((r) => setData(r.data))
+      .catch((e) => console.error("Failed to load dashboard:", e));
 
   const loadConnectionStatuses = () => {
-    getLinkedInStatus().then((r) => setLinkedinConnected(r.data.connected)).catch(() => {});
-    getGA4Status().then((r) => setGa4Connected(r.data.connected)).catch(() => {});
+    getLinkedInStatus()
+      .then((r) => setLinkedinConnected(r.data.connected))
+      .catch((e) => console.error("Failed to load LinkedIn status:", e));
+    getGA4Status()
+      .then((r) => setGa4Connected(r.data.connected))
+      .catch((e) => console.error("Failed to load GA4 status:", e));
   };
 
   const loadPlatformMetrics = () => {
     getPlatformMetrics("linkedin")
       .then((r) => setLinkedinMetrics(r.data))
-      .catch(() => {});
+      .catch((e) => console.error("Failed to load LinkedIn metrics:", e));
     getPlatformMetrics("ga4")
       .then((r) => setGa4Metrics(r.data))
-      .catch(() => {});
+      .catch((e) => console.error("Failed to load GA4 metrics:", e));
   };
 
   useEffect(() => {

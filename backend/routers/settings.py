@@ -4,12 +4,14 @@ import json
 import logging
 import os
 import secrets
-from fastapi import APIRouter, Depends, HTTPException
+import time
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.auth import get_current_org_id
+from backend.security import limiter
 from backend.services.org_config_service import get_org_config, upsert_org_config, delete_org_config, mask_secret
 
 logger = logging.getLogger(__name__)
@@ -75,7 +77,9 @@ def get_brand_settings(
 
 
 @router.put("/brand", response_model=BrandSettingsResponse)
+@limiter.limit("10/minute")
 def save_brand_settings(
+    request: Request,
     data: BrandSettingsRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -132,7 +136,9 @@ def get_icp_profile(
 
 
 @router.put("/icp", response_model=ICPProfileResponse)
+@limiter.limit("10/minute")
 def save_icp_profile(
+    request: Request,
     data: ICPProfileRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -157,7 +163,9 @@ class GA4StatusResponse(BaseModel):
 
 
 @router.post("/ga4/connect", response_model=GA4StatusResponse)
+@limiter.limit("5/minute")
 def connect_ga4(
+    request: Request,
     data: GA4ConnectRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -252,7 +260,9 @@ class FigmaStatusResponse(BaseModel):
 
 
 @router.post("/figma/connect", response_model=FigmaStatusResponse)
+@limiter.limit("5/minute")
 def connect_figma(
+    request: Request,
     data: FigmaConnectRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -350,8 +360,28 @@ def get_figma_text_nodes(
 
 # ─── Canva Connection (OAuth 2.0 + PKCE) ───
 
-# In-memory store for PKCE verifiers (keyed by state param, short-lived)
-_canva_pkce_store: dict[str, str] = {}
+# Thread-safe TTL store for PKCE verifiers (5 min expiry)
+_canva_pkce_store: dict[str, tuple[str, float]] = {}
+_PKCE_TTL = 300  # 5 minutes
+
+def _pkce_set(key: str, verifier: str) -> None:
+    """Store PKCE verifier with TTL."""
+    _canva_pkce_store[key] = (verifier, time.time() + _PKCE_TTL)
+    # Cleanup expired entries
+    now = time.time()
+    expired = [k for k, (_, exp) in _canva_pkce_store.items() if exp < now]
+    for k in expired:
+        _canva_pkce_store.pop(k, None)
+
+def _pkce_pop(key: str) -> str | None:
+    """Pop PKCE verifier if not expired."""
+    entry = _canva_pkce_store.pop(key, None)
+    if entry is None:
+        return None
+    verifier, expires_at = entry
+    if time.time() > expires_at:
+        return None
+    return verifier
 
 
 class CanvaAuthUrlResponse(BaseModel):
@@ -396,20 +426,21 @@ def get_canva_authorize_url(
     state = secrets.token_urlsafe(32)
 
     # Store verifier for callback (keyed by org_id:state)
-    _canva_pkce_store[f"{org_id}:{state}"] = code_verifier
+    _pkce_set(f"{org_id}:{state}", code_verifier)
 
     auth_url = build_auth_url(client_id, redirect_uri, state, code_challenge)
     return CanvaAuthUrlResponse(auth_url=auth_url, state=state)
 
 
 @router.post("/canva/callback", response_model=CanvaStatusResponse)
+@limiter.limit("5/minute")
 def canva_oauth_callback(
+    request: Request,
     data: CanvaCallbackRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
     """Exchange Canva OAuth code for tokens and store connection."""
-    import time as _time
     client_id = os.getenv("CANVA_CLIENT_ID", "")
     client_secret = os.getenv("CANVA_CLIENT_SECRET", "")
     redirect_uri = os.getenv("CANVA_REDIRECT_URI", "")
@@ -417,9 +448,9 @@ def canva_oauth_callback(
     if not client_id or not client_secret:
         raise HTTPException(status_code=400, detail="Canva integration not configured.")
 
-    # Retrieve PKCE verifier
+    # Retrieve PKCE verifier (with TTL check)
     store_key = f"{org_id}:{data.state}"
-    code_verifier = _canva_pkce_store.pop(store_key, None)
+    code_verifier = _pkce_pop(store_key)
     if not code_verifier:
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state. Please try connecting again.")
 
@@ -444,7 +475,7 @@ def canva_oauth_callback(
     upsert_org_config(db, org_id, CANVA_CONFIG_KEY, {
         "access_token": access_token,
         "refresh_token": token_data.get("refresh_token", ""),
-        "expires_at": _time.time() + token_data.get("expires_in", 3600),
+        "expires_at": time.time() + token_data.get("expires_in", 3600),
         "user_name": user_name,
     })
 

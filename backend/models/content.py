@@ -10,13 +10,13 @@ class ContentItem(Base):
     __tablename__ = "content_items"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
     problem_id = Column(String(36), ForeignKey("research_problems.id"), nullable=True)
     template_id = Column(String(36), ForeignKey("content_templates.id"), nullable=False)
     title = Column(String(200), nullable=False)
     language = Column(String(10), nullable=False, default="en")
     country = Column(String(5), nullable=True)
-    status = Column(String(20), default="draft")
+    status = Column(String(20), default="draft", index=True)
     content_data = Column(JSON, nullable=False)
     rendered_html = Column(Text, nullable=True)
     canva_design_id = Column(String(200), nullable=True)
@@ -24,7 +24,7 @@ class ContentItem(Base):
     generation_model = Column(String(50), default="")
     generation_tokens = Column(Integer, default=0)
     parent_id = Column(String(36), ForeignKey("content_items.id"), nullable=True)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now(), index=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     problem = relationship("ResearchProblem", back_populates="content_items")

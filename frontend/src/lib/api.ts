@@ -20,6 +20,18 @@ const attachAuth = async (config: import("axios").InternalAxiosRequestConfig) =>
 
 api.interceptors.request.use(attachAuth);
 
+// Redirect to login on 401 (expired/invalid token)
+const handle401 = (error: import("axios").AxiosError) => {
+  if (error.response?.status === 401 && typeof window !== "undefined") {
+    supabase.auth.signOut().then(() => {
+      window.location.href = "/login";
+    });
+  }
+  return Promise.reject(error);
+};
+
+api.interceptors.response.use((r) => r, handle401);
+
 // Direct backend client — bypasses Vercel proxy to avoid its ~30s timeout
 // Used for long-running AI operations (content generation, translation, etc.)
 const backendUrl = process.env.NEXT_PUBLIC_API_URL || "";
@@ -33,6 +45,7 @@ const directApi = backendUrl
 
 if (backendUrl) {
   directApi.interceptors.request.use(attachAuth);
+  directApi.interceptors.response.use((r) => r, handle401);
 }
 
 // --- Languages ---

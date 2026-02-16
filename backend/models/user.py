@@ -8,7 +8,7 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
 
     id = Column(String(36), primary_key=True)  # matches Supabase auth.users.id
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
     email = Column(String(200), nullable=False)
     full_name = Column(String(200), default="")
     role = Column(String(20), default="member")  # owner, admin, member

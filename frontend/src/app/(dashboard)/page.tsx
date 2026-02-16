@@ -22,10 +22,12 @@ export default function Dashboard() {
   const [problems, setProblems] = useState<ResearchProblem[]>([]);
 
   useEffect(() => {
-    getDashboard().then((r) => setDashboard(r.data)).catch(() => {});
+    getDashboard()
+      .then((r) => setDashboard(r.data))
+      .catch((e) => console.error("Failed to load dashboard:", e));
     getResearchProblems({ limit: 3 })
       .then((r) => setProblems(r.data))
-      .catch(() => {});
+      .catch((e) => console.error("Failed to load problems:", e));
   }, []);
 
   const stats = [

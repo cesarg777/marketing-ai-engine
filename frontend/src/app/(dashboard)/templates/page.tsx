@@ -21,7 +21,9 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<ContentTemplate[]>([]);
 
   const load = () =>
-    getTemplates().then((r) => setTemplates(r.data));
+    getTemplates()
+      .then((r) => setTemplates(r.data))
+      .catch((e) => console.error("Failed to load templates:", e));
 
   useEffect(() => {
     load();

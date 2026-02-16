@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 import httpx
 from backend.database import get_db
-from backend.security import limiter
+from backend.security import limiter, validate_uuid
 from backend.auth import get_current_org_id
 from backend.models.content import ContentItem, Publication
 from backend.models.metrics import ContentMetric
@@ -41,6 +41,46 @@ class BatchPublishRequest(BaseModel):
     channel: str = Field(..., max_length=30)
 
 
+# ─── Response models ───
+
+class AmplifyContentItemResponse(BaseModel):
+    content: ContentItemResponse
+    publications: list[PublicationResponse] = []
+
+class AmplifyContentListResponse(BaseModel):
+    items: list[AmplifyContentItemResponse]
+    total: int
+
+class CandidateResponse(BaseModel):
+    content: ContentItemResponse
+    total_engagement: int = 0
+    total_impressions: int = 0
+
+class ChannelResponse(BaseModel):
+    name: str
+    label: str
+    connected: bool
+    profile_name: str = ""
+
+class BatchPublishResponse(BaseModel):
+    published: list[PublicationResponse]
+    errors: list[dict] = []
+
+class ConnectionStatusResponse(BaseModel):
+    status: str
+    site_name: str = ""
+    profile_name: str = ""
+    avatar_count: int = 0
+
+class ConnectionCheckResponse(BaseModel):
+    connected: bool
+    site_name: str = ""
+    from_email: str = ""
+    profile_name: str = ""
+    masked_token: str = ""
+    masked_key: str = ""
+
+
 # ─── Helpers (delegated to shared service) ───
 
 from backend.services.org_config_service import (
@@ -53,7 +93,7 @@ from backend.services.org_config_service import (
 
 # ─── Content list for Amplify page ───
 
-@router.get("/content")
+@router.get("/content", response_model=AmplifyContentListResponse)
 def list_amplify_content(
     status: str | None = None,
     language: str | None = None,
@@ -94,7 +134,7 @@ def list_amplify_content(
 
 # ─── Candidates (high-engagement) ───
 
-@router.get("/candidates")
+@router.get("/candidates", response_model=list[CandidateResponse])
 def list_amplification_candidates(
     limit: int = 10,
     db: Session = Depends(get_db),
@@ -127,12 +167,15 @@ def list_amplification_candidates(
 # ─── Amplification actions ───
 
 @router.post("/blog", response_model=ContentItemResponse)
+@limiter.limit("10/minute")
 def amplify_to_blog(
+    request: Request,
     content_id: str,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
     """Expand a content item into a full blog post."""
+    validate_uuid(content_id, "content_id")
     item = (
         db.query(ContentItem)
         .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
@@ -147,7 +190,9 @@ def amplify_to_blog(
 
 
 @router.post("/newsletter")
+@limiter.limit("10/minute")
 def create_newsletter(
+    request: Request,
     data: NewsletterCreateRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -167,7 +212,9 @@ def create_newsletter(
 
 
 @router.post("/newsletter/send")
+@limiter.limit("5/minute")
 def send_newsletter(
+    request: Request,
     subject: str,
     html: str,
     db: Session = Depends(get_db),
@@ -189,12 +236,15 @@ def send_newsletter(
 
 
 @router.post("/landing-page")
+@limiter.limit("10/minute")
 def create_landing_page(
+    request: Request,
     content_id: str,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
     """Create a Webflow landing page from content."""
+    validate_uuid(content_id, "content_id")
     item = (
         db.query(ContentItem)
         .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
@@ -210,7 +260,7 @@ def create_landing_page(
 
 # ─── Batch Publish ───
 
-@router.post("/batch-publish")
+@router.post("/batch-publish", response_model=BatchPublishResponse)
 @limiter.limit("10/minute")
 def batch_publish(
     request: Request,
@@ -249,7 +299,7 @@ def batch_publish(
 
 # ─── Channels list ───
 
-@router.get("/channels")
+@router.get("/channels", response_model=list[ChannelResponse])
 def list_channels(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -286,8 +336,10 @@ def list_channels(
 
 # ─── Webflow Connection ───
 
-@router.post("/webflow/connect")
+@router.post("/webflow/connect", response_model=ConnectionStatusResponse)
+@limiter.limit("5/minute")
 def connect_webflow(
+    request: Request,
     data: WebflowConnectRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -316,7 +368,7 @@ def connect_webflow(
     return {"status": "connected", "site_name": site_name}
 
 
-@router.get("/webflow/status")
+@router.get("/webflow/status", response_model=ConnectionCheckResponse)
 def webflow_status(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -342,8 +394,10 @@ def disconnect_webflow(
 
 # ─── Newsletter (Resend) Connection ───
 
-@router.post("/newsletter/connect")
+@router.post("/newsletter/connect", response_model=ConnectionStatusResponse)
+@limiter.limit("5/minute")
 def connect_newsletter(
+    request: Request,
     data: NewsletterConnectRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -368,7 +422,7 @@ def connect_newsletter(
     return {"status": "connected"}
 
 
-@router.get("/newsletter/status")
+@router.get("/newsletter/status", response_model=ConnectionCheckResponse)
 def newsletter_status(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -394,8 +448,10 @@ def disconnect_newsletter(
 
 # ─── LinkedIn Connection ───
 
-@router.post("/linkedin/connect")
+@router.post("/linkedin/connect", response_model=ConnectionStatusResponse)
+@limiter.limit("5/minute")
 def connect_linkedin(
+    request: Request,
     data: LinkedInConnectRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
@@ -424,7 +480,7 @@ def connect_linkedin(
     return {"status": "connected", "profile_name": profile_name}
 
 
-@router.get("/linkedin/status")
+@router.get("/linkedin/status", response_model=ConnectionCheckResponse)
 def linkedin_status(
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),

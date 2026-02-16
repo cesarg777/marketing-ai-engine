@@ -24,7 +24,7 @@ class PlatformMetric(Base):
     impressions = Column(Integer, default=0)
     clicks = Column(Integer, default=0)
     engagement = Column(Integer, default=0)
-    extra_data = Column(JSON, default=dict)  # Platform-specific data
+    extra_data = Column(JSON, default=lambda: {})  # Platform-specific data
     created_at = Column(DateTime, server_default=func.now())
 
     def __repr__(self):
@@ -43,7 +43,7 @@ class ContentMetric(Base):
     engagement = Column(Integer, default=0)
     clicks = Column(Integer, default=0)
     conversions = Column(Integer, default=0)
-    custom_data = Column(JSON, default=dict)
+    custom_data = Column(JSON, default=lambda: {})
 
     content_item = relationship("ContentItem", back_populates="metrics")
 
@@ -58,12 +58,12 @@ class WeeklyReport(Base):
     )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
     week_start = Column(Date, nullable=False)
-    top_content_ids = Column(JSON, default=list)
+    top_content_ids = Column(JSON, default=lambda: [])
     ai_insights = Column(Text, default="")
-    recommendations = Column(JSON, default=list)
-    amplification_candidates = Column(JSON, default=list)
+    recommendations = Column(JSON, default=lambda: [])
+    amplification_candidates = Column(JSON, default=lambda: [])
     created_at = Column(DateTime, server_default=func.now())
 
     def __repr__(self):

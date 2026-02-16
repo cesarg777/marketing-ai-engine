@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getContentItems, deleteContent } from "@/lib/api";
+import { getContentItems, deleteContent, getLanguages } from "@/lib/api";
 import type { ContentItem } from "@/types";
 import { Card, Badge, PageHeader, Button, EmptyState, Select } from "@/components/ui";
 import { Library, Trash2, Globe, Plus } from "lucide-react";
@@ -13,16 +13,30 @@ const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger
   amplified: "purple",
 };
 
+interface LanguageOption {
+  code: string;
+  name: string;
+}
+
 export default function ContentPage() {
   const [items, setItems] = useState<ContentItem[]>([]);
+  const [languages, setLanguages] = useState<LanguageOption[]>([]);
   const [filter, setFilter] = useState({ language: "", status: "" });
 
   const load = () => {
     const params: Record<string, string | number> = {};
     if (filter.language) params.language = filter.language;
     if (filter.status) params.status = filter.status;
-    getContentItems(params).then((r) => setItems(r.data));
+    getContentItems(params)
+      .then((r) => setItems(r.data))
+      .catch((e) => console.error("Failed to load content:", e));
   };
+
+  useEffect(() => {
+    getLanguages(true)
+      .then((r) => setLanguages(r.data))
+      .catch((e) => console.error("Failed to load languages:", e));
+  }, []);
 
   useEffect(() => {
     load();
@@ -68,9 +82,7 @@ export default function ContentPage() {
             onChange={(e) => setFilter({ ...filter, language: e.target.value })}
             options={[
               { value: "", label: "All Languages" },
-              { value: "en", label: "English" },
-              { value: "es", label: "Spanish" },
-              { value: "pt", label: "Portuguese" },
+              ...languages.map((l) => ({ value: l.code, label: l.name })),
             ]}
           />
         </div>

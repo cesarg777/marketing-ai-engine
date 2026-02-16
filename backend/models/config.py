@@ -12,7 +12,7 @@ class OrgConfig(Base):
     )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
     key = Column(String(100), nullable=False)
     value = Column(JSON, nullable=False)
     description = Column(Text, default="")

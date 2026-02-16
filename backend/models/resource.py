@@ -16,7 +16,7 @@ class OrgResource(Base):
     file_name = Column(String(200), default="")
     file_size = Column(Integer, default=0)
     mime_type = Column(String(100), default="")
-    metadata_json = Column(JSON, default=dict)  # extra info: hex colors, font family, person role, etc.
+    metadata_json = Column(JSON, default=lambda: {})  # extra info: hex colors, font family, person role, etc.
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
 

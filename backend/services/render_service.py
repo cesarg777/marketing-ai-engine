@@ -84,6 +84,7 @@ def _upload_and_save(db: Session, item: ContentItem, result: dict) -> dict:
     )
 
     item.rendered_html = result.get("rendered_html", "")
+    item.status = "review" if item.status == "draft" else item.status
     db.commit()
     db.refresh(item)
 
