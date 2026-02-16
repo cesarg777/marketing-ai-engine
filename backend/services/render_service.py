@@ -195,3 +195,212 @@ def render_content_item(
 
     result["render_source"] = "builtin"
     return _upload_and_save(db, item, result)
+
+
+def preview_content_item(
+    db: Session,
+    item: ContentItem,
+    template: ContentTemplate,
+) -> dict:
+    """Generate a preview (HTML or edit URL) without final rendering.
+
+    Priority:
+      1. Canva → autofill only → returns canva_design_id + edit URL
+      2. Figma → SVG text replacement → returns figma_edit_url + HTML preview
+      3. Built-in → generate HTML only (no Playwright)
+
+    Returns dict with: render_source, rendered_html, edit_url, canva_design_id
+    """
+    from tools.content.render_asset import generate_html, VISUAL_TYPES
+
+    if template.content_type not in VISUAL_TYPES:
+        raise ValueError(
+            f"Template type '{template.content_type}' does not support visual rendering."
+        )
+
+    brand_context = _build_brand_context(db, item.org_id)
+
+    # ── Priority 1 & 2: External design source ──
+    design_source = getattr(template, "design_source", None)
+    if design_source and isinstance(design_source, dict):
+        provider = design_source.get("provider")
+
+        if provider == "canva":
+            try:
+                from backend.services.canva_render_service import create_canva_preview
+                result = create_canva_preview(
+                    db=db,
+                    org_id=item.org_id,
+                    design_source=design_source,
+                    content_data=item.content_data or {},
+                    content_type=template.content_type,
+                    brand_context=brand_context,
+                )
+                if result:
+                    return {
+                        "render_source": "canva",
+                        "rendered_html": "",
+                        "edit_url": result["canva_edit_url"],
+                        "canva_design_id": result["canva_design_id"],
+                    }
+            except Exception as e:
+                logger.warning("Canva preview failed, falling back: %s", e)
+
+        elif provider == "figma":
+            try:
+                from backend.services.figma_render_service import preview_figma_content
+                result = preview_figma_content(
+                    db=db,
+                    org_id=item.org_id,
+                    design_source=design_source,
+                    content_data=item.content_data or {},
+                    content_type=template.content_type,
+                    brand_context=brand_context,
+                )
+                if result:
+                    return {
+                        "render_source": "figma",
+                        "rendered_html": result["rendered_html"],
+                        "edit_url": result["figma_edit_url"],
+                        "canva_design_id": "",
+                    }
+            except Exception as e:
+                logger.warning("Figma preview failed, falling back: %s", e)
+
+    # ── Priority 3: Built-in engine (HTML only, no Playwright) ──
+    template_assets_query = (
+        db.query(TemplateAsset)
+        .filter(
+            TemplateAsset.template_id == template.id,
+            TemplateAsset.asset_type != "reference_file",
+        )
+        .order_by(TemplateAsset.sort_order)
+        .all()
+    )
+    template_assets = [
+        {"asset_type": a.asset_type, "file_url": a.file_url, "name": a.name}
+        for a in template_assets_query
+    ]
+
+    structure_zones = {}
+    for field_def in (template.structure or []):
+        if isinstance(field_def, dict) and "zone" in field_def:
+            structure_zones[field_def["name"]] = field_def["zone"]
+
+    rendered_html = generate_html(
+        content_type=template.content_type,
+        content_data=item.content_data or {},
+        visual_layout_override=template.visual_layout or None,
+        visual_css_override=template.visual_css or None,
+        template_assets=template_assets,
+        brand_context=brand_context,
+        structure_zones=structure_zones if structure_zones else None,
+    )
+
+    return {
+        "render_source": "builtin",
+        "rendered_html": rendered_html,
+        "edit_url": "",
+        "canva_design_id": "",
+    }
+
+
+def render_from_preview(
+    db: Session,
+    item: ContentItem,
+    template: ContentTemplate,
+    html: str | None = None,
+    canva_design_id: str | None = None,
+) -> dict:
+    """Render final asset from a preview.
+
+    - Canva: export from stored canva_design_id
+    - Figma: re-fetch SVG, render with Playwright
+    - Built-in: render provided HTML with Playwright
+
+    Returns dict with: file_name, asset_url, rendered_html, format, render_source
+    """
+    brand_context = _build_brand_context(db, item.org_id)
+    design_source = getattr(template, "design_source", None)
+
+    # ── Canva: export from design_id ──
+    if canva_design_id:
+        try:
+            from backend.services.canva_render_service import export_canva_design
+            result = export_canva_design(
+                db=db,
+                org_id=item.org_id,
+                canva_design_id=canva_design_id,
+                content_id=item.id,
+            )
+            if result:
+                result["render_source"] = "canva"
+                return _upload_and_save(db, item, result)
+        except Exception as e:
+            logger.error("Canva export failed: %s", e)
+            raise ValueError(f"Canva export failed: {e}")
+
+    # ── Figma: re-render from fresh SVG ──
+    if (
+        design_source
+        and isinstance(design_source, dict)
+        and design_source.get("provider") == "figma"
+        and not html
+    ):
+        try:
+            from backend.services.figma_render_service import render_figma_content
+            result = render_figma_content(
+                db=db,
+                org_id=item.org_id,
+                design_source=design_source,
+                content_data=item.content_data or {},
+                content_id=item.id,
+                content_type=template.content_type,
+                brand_context=brand_context,
+            )
+            if result:
+                result["render_source"] = "figma"
+                return _upload_and_save(db, item, result)
+        except Exception as e:
+            logger.error("Figma render failed: %s", e)
+            raise ValueError(f"Figma render failed: {e}")
+
+    # ── Built-in: render provided or re-generated HTML ──
+    if not html:
+        from tools.content.render_asset import generate_html
+        template_assets_query = (
+            db.query(TemplateAsset)
+            .filter(
+                TemplateAsset.template_id == template.id,
+                TemplateAsset.asset_type != "reference_file",
+            )
+            .order_by(TemplateAsset.sort_order)
+            .all()
+        )
+        template_assets = [
+            {"asset_type": a.asset_type, "file_url": a.file_url, "name": a.name}
+            for a in template_assets_query
+        ]
+        structure_zones = {}
+        for field_def in (template.structure or []):
+            if isinstance(field_def, dict) and "zone" in field_def:
+                structure_zones[field_def["name"]] = field_def["zone"]
+
+        html = generate_html(
+            content_type=template.content_type,
+            content_data=item.content_data or {},
+            visual_layout_override=template.visual_layout or None,
+            visual_css_override=template.visual_css or None,
+            template_assets=template_assets,
+            brand_context=brand_context,
+            structure_zones=structure_zones if structure_zones else None,
+        )
+
+    from tools.content.render_asset import render_from_html
+    result = render_from_html(
+        html=html,
+        content_type=template.content_type,
+        content_id=item.id,
+    )
+    result["render_source"] = "builtin"
+    return _upload_and_save(db, item, result)

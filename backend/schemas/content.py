@@ -34,6 +34,7 @@ class PublishRequest(BaseModel):
 
 class ContentItemResponse(BaseModel):
     id: str
+    org_id: str
     problem_id: str | None
     template_id: str
     title: str
@@ -58,6 +59,18 @@ class RenderResponse(BaseModel):
     format: str
     rendered_html: str
     render_source: str = "builtin"  # "builtin", "figma", or "canva"
+
+
+class PreviewResponse(BaseModel):
+    render_source: str  # "builtin", "figma", or "canva"
+    rendered_html: str = ""  # For builtin/figma
+    edit_url: str = ""  # For figma/canva
+    canva_design_id: str = ""  # For canva (needed for export step)
+
+
+class RenderFinalRequest(BaseModel):
+    html: str | None = None  # For builtin: edited HTML from preview
+    canva_design_id: str | None = None  # For canva: design to export
 
 
 class PublicationResponse(BaseModel):

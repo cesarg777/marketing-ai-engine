@@ -151,3 +151,147 @@ def render_canva_content(
         "rendered_html": "",  # Canva exports are binary, no HTML
         "format": output_format,
     }
+
+
+def create_canva_preview(
+    db: Session,
+    org_id: str,
+    design_source: dict,
+    content_data: dict,
+    content_type: str,
+    brand_context: dict,
+) -> dict | None:
+    """Create a Canva autofill design (preview step only, no export).
+
+    Returns dict with canva_design_id and canva_edit_url, or None on failure.
+    """
+    config = get_org_config(db, org_id, "canva_config")
+    if not config:
+        logger.warning("Canva not connected for org %s", org_id)
+        return None
+
+    template_id = design_source.get("template_id", "")
+    field_map = design_source.get("field_map", {})
+    if not template_id:
+        logger.warning("No Canva template_id in design_source")
+        return None
+
+    # Get valid access token
+    try:
+        from backend.services.canva_service import get_valid_token
+        access_token, updated_config = get_valid_token(config)
+        if updated_config:
+            upsert_org_config(db, org_id, "canva_config", updated_config)
+    except Exception as e:
+        logger.error("Canva token refresh failed for org %s: %s", org_id, e)
+        return None
+
+    # Build autofill data
+    from tools.content.render_asset import _normalize_visual_data
+    normalized = _normalize_visual_data(content_type, content_data)
+
+    autofill_data: dict = {}
+    for field_name, canva_field in field_map.items():
+        value = normalized.get(field_name, "")
+        if isinstance(value, str) and value:
+            autofill_data[canva_field] = {"type": "text", "text": value}
+        elif isinstance(value, list):
+            parts = []
+            for item in value:
+                if isinstance(item, dict):
+                    parts.append(f"{item.get('headline', '')}\n{item.get('body', '')}")
+                elif isinstance(item, str):
+                    parts.append(item)
+            if parts:
+                autofill_data[canva_field] = {"type": "text", "text": "\n\n".join(parts)}
+
+    if "brand_name" in field_map and brand_context.get("name"):
+        autofill_data[field_map["brand_name"]] = {"type": "text", "text": brand_context["name"]}
+    if "brand_website" in field_map and brand_context.get("website"):
+        autofill_data[field_map["brand_website"]] = {"type": "text", "text": brand_context["website"]}
+
+    if not autofill_data:
+        logger.warning("No autofill data for Canva preview")
+        return None
+
+    # Create autofill job (no export)
+    try:
+        from backend.services.canva_service import create_autofill, wait_for_autofill
+        autofill_result = create_autofill(access_token, template_id, autofill_data)
+        job_id = autofill_result.get("job", {}).get("id", "")
+        if not job_id:
+            logger.error("Canva autofill returned no job ID: %s", autofill_result)
+            return None
+
+        completed = wait_for_autofill(access_token, job_id, max_wait=60)
+        design_id = completed.get("job", {}).get("result", {}).get("design", {}).get("id", "")
+        if not design_id:
+            logger.error("Canva autofill completed but no design ID: %s", completed)
+            return None
+
+        logger.info("Canva preview created, design_id=%s", design_id)
+        return {
+            "canva_design_id": design_id,
+            "canva_edit_url": f"https://www.canva.com/design/{design_id}/edit",
+        }
+    except Exception as e:
+        logger.error("Canva autofill failed for org %s: %s", org_id, e)
+        return None
+
+
+def export_canva_design(
+    db: Session,
+    org_id: str,
+    canva_design_id: str,
+    content_id: str,
+) -> dict | None:
+    """Export a previously autofilled Canva design to PNG.
+
+    Returns dict with file_path, file_name, rendered_html, format — or None on failure.
+    """
+    config = get_org_config(db, org_id, "canva_config")
+    if not config:
+        logger.warning("Canva not connected for org %s", org_id)
+        return None
+
+    try:
+        from backend.services.canva_service import get_valid_token
+        access_token, updated_config = get_valid_token(config)
+        if updated_config:
+            upsert_org_config(db, org_id, "canva_config", updated_config)
+    except Exception as e:
+        logger.error("Canva token refresh failed for org %s: %s", org_id, e)
+        return None
+
+    output_format = "png"
+    try:
+        from backend.services.canva_service import create_export, wait_for_export, download_file
+        export_result = create_export(access_token, canva_design_id, fmt=output_format)
+        export_id = export_result.get("job", {}).get("id", "")
+        if not export_id:
+            logger.error("Canva export returned no job ID: %s", export_result)
+            return None
+
+        urls = wait_for_export(access_token, export_id, max_wait=60)
+        if not urls:
+            logger.error("Canva export completed but no download URLs")
+            return None
+
+        file_bytes = download_file(urls[0])
+    except Exception as e:
+        logger.error("Canva export failed for org %s: %s", org_id, e)
+        return None
+
+    from tools.content.render_asset import RENDERS_DIR
+    RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+    output_id = content_id or str(uuid.uuid4())
+    output_path = RENDERS_DIR / f"{output_id}.{output_format}"
+    output_path.write_bytes(file_bytes)
+
+    logger.info("Canva export complete: %s (%d bytes)", output_path.name, len(file_bytes))
+    return {
+        "file_path": str(output_path),
+        "file_name": f"{output_id}.{output_format}",
+        "rendered_html": "",
+        "format": output_format,
+    }

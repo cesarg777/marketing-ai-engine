@@ -13,6 +13,7 @@ from backend.models.research import ResearchProblem, ResearchWeek
 from backend.schemas.content import (
     ContentGenerateRequest, ContentUpdateRequest, TranslateRequest,
     PublishRequest, ContentItemResponse, PublicationResponse, RenderResponse,
+    PreviewResponse, RenderFinalRequest,
 )
 from backend.security import validate_uuid, safe_update, CONTENT_UPDATE_FIELDS, limiter
 
@@ -251,6 +252,105 @@ def render_content(
         result = render_content_item(db=db, item=item, template=template)
     except Exception as e:
         logger.exception("Rendering failed for content %s", content_id)
+        raise HTTPException(status_code=500, detail=f"Rendering failed: {str(e)[:200]}")
+
+    return RenderResponse(
+        file_name=result["file_name"],
+        asset_url=result["asset_url"],
+        format=result["format"],
+        rendered_html=result["rendered_html"],
+        render_source=result.get("render_source", "builtin"),
+    )
+
+
+@router.post("/{content_id}/preview", response_model=PreviewResponse)
+def preview_content(
+    content_id: str,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Generate a preview (HTML or edit URL) without final rendering."""
+    validate_uuid(content_id, "content_id")
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    template = (
+        db.query(ContentTemplate)
+        .filter(
+            ContentTemplate.id == item.template_id,
+            or_(ContentTemplate.org_id == None, ContentTemplate.org_id == org_id),
+        )
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    from tools.content.render_asset import VISUAL_TYPES
+    if template.content_type not in VISUAL_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Template type '{template.content_type}' does not support visual rendering",
+        )
+
+    from backend.services.render_service import preview_content_item
+    try:
+        result = preview_content_item(db=db, item=item, template=template)
+    except Exception as e:
+        logger.exception("Preview failed for content %s", content_id)
+        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)[:200]}")
+
+    return PreviewResponse(
+        render_source=result["render_source"],
+        rendered_html=result.get("rendered_html", ""),
+        edit_url=result.get("edit_url", ""),
+        canva_design_id=result.get("canva_design_id", ""),
+    )
+
+
+@router.post("/{content_id}/render-final", response_model=RenderResponse)
+def render_final(
+    content_id: str,
+    data: RenderFinalRequest,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Render final asset from a preview (edited HTML or Canva design)."""
+    validate_uuid(content_id, "content_id")
+    item = (
+        db.query(ContentItem)
+        .filter(ContentItem.id == content_id, ContentItem.org_id == org_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    template = (
+        db.query(ContentTemplate)
+        .filter(
+            ContentTemplate.id == item.template_id,
+            or_(ContentTemplate.org_id == None, ContentTemplate.org_id == org_id),
+        )
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    from backend.services.render_service import render_from_preview
+    try:
+        result = render_from_preview(
+            db=db,
+            item=item,
+            template=template,
+            html=data.html,
+            canva_design_id=data.canva_design_id,
+        )
+    except Exception as e:
+        logger.exception("Final render failed for content %s", content_id)
         raise HTTPException(status_code=500, detail=f"Rendering failed: {str(e)[:200]}")
 
     return RenderResponse(

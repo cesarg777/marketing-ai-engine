@@ -572,6 +572,163 @@ svg{{width:100%;height:100%;}}
 <body>{modified_svg}</body></html>"""
 
 
+def generate_html(
+    content_type: str,
+    content_data: dict,
+    visual_layout_override: str | None = None,
+    visual_css_override: str | None = None,
+    template_assets: list[dict] | None = None,
+    brand_context: dict | None = None,
+    structure_zones: dict | None = None,
+) -> str:
+    """Generate rendered HTML without Playwright. Returns HTML string.
+
+    Same four rendering modes as render(), but stops before the browser step.
+    Useful for preview flows where the user can edit before final render.
+    """
+    if content_type not in TEMPLATE_MAP:
+        raise ValueError(f"Unknown visual content type: {content_type}. Supported: {list(TEMPLATE_MAP.keys())}")
+
+    if not content_data:
+        raise ValueError("content_data is empty — cannot render without content")
+
+    # Normalize visual data: map field aliases + build arrays from flat fields
+    if content_type in _FIELD_ALIASES:
+        content_data = _normalize_visual_data(content_type, content_data)
+
+    # Validate array fields exist for types that need them
+    array_field = _ARRAY_FIELD_TYPES.get(content_type)
+    if array_field and not content_data.get(array_field):
+        raise ValueError(
+            f"'{content_type}' has no renderable '{array_field}'. "
+            f"Got keys: {list(content_data.keys())}"
+        )
+
+    config = TEMPLATE_MAP[content_type]
+
+    # Build assets dict keyed by asset_type for template access
+    assets_dict = {}
+    if template_assets:
+        for a in template_assets:
+            assets_dict[a.get("asset_type", "")] = a.get("file_url", "")
+
+    # Build brand dict with defaults for templates
+    brand = {
+        "name": "",
+        "logo_url": "",
+        "website": "",
+        "accent_color": "#0066FF",
+    }
+    if brand_context:
+        brand.update({k: v for k, v in brand_context.items() if v})
+
+    # --- MODE 0: SVG TEMPLATE (edit text in SVG source) ---
+    svg_assets = _get_svg_assets(template_assets, content_type)
+    if svg_assets:
+        return _render_svg_template(
+            content_type, content_data, svg_assets, config, brand,
+        )
+    # --- MODE 1: OVERLAY (design background + text zones) ---
+    if (design_assets := _get_design_assets(template_assets, content_type)) and structure_zones:
+        return _render_overlay_html(
+            content_type, content_data, design_assets,
+            structure_zones, config, brand,
+        )
+    # --- MODE 2: CUSTOM HTML or MODE 3: DEFAULT FILE ---
+    if visual_layout_override:
+        env = Environment(autoescape=True)
+        template = env.from_string(visual_layout_override)
+    else:
+        env = Environment(
+            loader=FileSystemLoader(str(TEMPLATES_DIR)),
+            autoescape=True,
+        )
+        template = env.get_template(config["file"])
+
+    try:
+        return template.render(
+            **content_data,
+            css_override=visual_css_override or "",
+            assets=assets_dict,
+            brand=brand,
+        )
+    except Exception as e:
+        raise ValueError(
+            f"Jinja2 template rendering failed for '{content_type}': {e}. "
+            f"content_data keys: {list(content_data.keys())}"
+        )
+
+
+def _render_html_with_playwright(
+    html: str,
+    content_type: str,
+    output_id: str,
+) -> dict:
+    """Take HTML and render to PNG/PDF via Playwright.
+
+    Returns dict with file_path, file_name, rendered_html, format.
+    """
+    config = TEMPLATE_MAP[content_type]
+    output_format = config["format"]
+    ext = output_format
+
+    RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+    output_path = RENDERS_DIR / f"{output_id}.{ext}"
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(
+                viewport={"width": config["width"], "height": config["height"]},
+                device_scale_factor=2,  # 2x for retina quality
+            )
+            page.set_content(html, wait_until="networkidle")
+            # Wait for fonts to load
+            page.wait_for_timeout(500)
+
+            if output_format == "pdf":
+                page.pdf(
+                    path=str(output_path),
+                    width=f"{config['width']}px",
+                    height=f"{config['height']}px",
+                    print_background=True,
+                )
+            else:
+                page.screenshot(
+                    path=str(output_path),
+                    full_page=True,
+                    type="png",
+                )
+
+            browser.close()
+    except Exception as e:
+        raise RuntimeError(
+            f"Playwright browser rendering failed for '{content_type}': {e}"
+        )
+
+    return {
+        "file_path": str(output_path),
+        "file_name": f"{output_id}.{ext}",
+        "rendered_html": html,
+        "format": output_format,
+    }
+
+
+def render_from_html(
+    html: str,
+    content_type: str,
+    content_id: str | None = None,
+) -> dict:
+    """Take pre-built HTML and render to PNG/PDF via Playwright.
+
+    Used by the editable preview flow where the user may have edited the HTML.
+    """
+    if content_type not in TEMPLATE_MAP:
+        raise ValueError(f"Unknown visual content type: {content_type}. Supported: {list(TEMPLATE_MAP.keys())}")
+    output_id = content_id or str(uuid.uuid4())
+    return _render_html_with_playwright(html, content_type, output_id)
+
+
 def render(
     content_type: str,
     content_data: dict,
@@ -605,127 +762,18 @@ def render(
     Returns:
         dict with keys: file_path, rendered_html, format
     """
-    if content_type not in TEMPLATE_MAP:
-        raise ValueError(f"Unknown visual content type: {content_type}. Supported: {list(TEMPLATE_MAP.keys())}")
+    rendered_html = generate_html(
+        content_type=content_type,
+        content_data=content_data,
+        visual_layout_override=visual_layout_override,
+        visual_css_override=visual_css_override,
+        template_assets=template_assets,
+        brand_context=brand_context,
+        structure_zones=structure_zones,
+    )
 
-    if not content_data:
-        raise ValueError("content_data is empty — cannot render without content")
-
-    # Normalize visual data: map field aliases + build arrays from flat fields
-    if content_type in _FIELD_ALIASES:
-        content_data = _normalize_visual_data(content_type, content_data)
-
-    # Validate array fields exist for types that need them
-    array_field = _ARRAY_FIELD_TYPES.get(content_type)
-    if array_field and not content_data.get(array_field):
-        raise ValueError(
-            f"'{content_type}' has no renderable '{array_field}'. "
-            f"Got keys: {list(content_data.keys())}"
-        )
-
-    config = TEMPLATE_MAP[content_type]
     output_id = content_id or str(uuid.uuid4())
-
-    # Build assets dict keyed by asset_type for template access
-    assets_dict = {}
-    if template_assets:
-        for a in template_assets:
-            assets_dict[a.get("asset_type", "")] = a.get("file_url", "")
-
-    # Build brand dict with defaults for templates
-    brand = {
-        "name": "",
-        "logo_url": "",
-        "website": "",
-        "accent_color": "#0066FF",
-    }
-    if brand_context:
-        brand.update({k: v for k, v in brand_context.items() if v})
-
-    # --- MODE 0: SVG TEMPLATE (edit text in SVG source) ---
-    svg_assets = _get_svg_assets(template_assets, content_type)
-    if svg_assets:
-        rendered_html = _render_svg_template(
-            content_type, content_data, svg_assets, config, brand,
-        )
-    # --- MODE 1: OVERLAY (design background + text zones) ---
-    elif (design_assets := _get_design_assets(template_assets, content_type)) and structure_zones:
-        rendered_html = _render_overlay_html(
-            content_type, content_data, design_assets,
-            structure_zones, config, brand,
-        )
-    else:
-        # --- MODE 2: CUSTOM HTML or MODE 3: DEFAULT FILE ---
-        if visual_layout_override:
-            env = Environment(autoescape=True)
-            template = env.from_string(visual_layout_override)
-        else:
-            env = Environment(
-                loader=FileSystemLoader(str(TEMPLATES_DIR)),
-                autoescape=True,
-            )
-            template = env.get_template(config["file"])
-
-        try:
-            rendered_html = template.render(
-                **content_data,
-                css_override=visual_css_override or "",
-                assets=assets_dict,
-                brand=brand,
-            )
-        except Exception as e:
-            raise ValueError(
-                f"Jinja2 template rendering failed for '{content_type}': {e}. "
-                f"content_data keys: {list(content_data.keys())}"
-            )
-
-    # Ensure output directory exists
-    RENDERS_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Render with Playwright
-    output_format = config["format"]
-    ext = output_format
-    output_path = RENDERS_DIR / f"{output_id}.{ext}"
-
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page(
-                viewport={"width": config["width"], "height": config["height"]},
-                device_scale_factor=2,  # 2x for retina quality
-            )
-            page.set_content(rendered_html, wait_until="networkidle")
-            # Wait for fonts to load
-            page.wait_for_timeout(500)
-
-            if output_format == "pdf":
-                # For carousel: each slide is a "page" in the HTML, render as PDF
-                page.pdf(
-                    path=str(output_path),
-                    width=f"{config['width']}px",
-                    height=f"{config['height']}px",
-                    print_background=True,
-                )
-            else:
-                # PNG: screenshot the full page
-                page.screenshot(
-                    path=str(output_path),
-                    full_page=True,
-                    type="png",
-                )
-
-            browser.close()
-    except Exception as e:
-        raise RuntimeError(
-            f"Playwright browser rendering failed for '{content_type}': {e}"
-        )
-
-    return {
-        "file_path": str(output_path),
-        "file_name": f"{output_id}.{ext}",
-        "rendered_html": rendered_html,
-        "format": output_format,
-    }
+    return _render_html_with_playwright(rendered_html, content_type, output_id)
 
 
 if __name__ == "__main__":

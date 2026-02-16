@@ -11,6 +11,8 @@ import {
   getContentVersions,
   getLanguages,
   renderContent,
+  previewContent,
+  renderFinal,
   publishContent,
   generateVideo,
   getVideoStatus,
@@ -41,6 +43,8 @@ import {
   Send,
   Video,
   ExternalLink,
+  Code,
+  Pencil,
 } from "lucide-react";
 
 const VISUAL_TYPES = new Set([
@@ -121,6 +125,18 @@ export default function ContentDetailPage({
   const [assetUrl, setAssetUrl] = useState<string | null>(null);
   const [assetFormat, setAssetFormat] = useState<string | null>(null);
 
+  // Editable preview state
+  const [previewing, setPreviewing] = useState(false);
+  const [previewData, setPreviewData] = useState<{
+    render_source: string;
+    rendered_html: string;
+    edit_url: string;
+    canva_design_id: string;
+  } | null>(null);
+  const [editedHtml, setEditedHtml] = useState("");
+  const [showHtmlSource, setShowHtmlSource] = useState(false);
+  const [renderingFinal, setRenderingFinal] = useState(false);
+
   // Publish state
   const [showPublish, setShowPublish] = useState(false);
   const [publishChannel, setPublishChannel] = useState("linkedin");
@@ -138,6 +154,14 @@ export default function ContentDetailPage({
   } | null>(null);
 
   useEffect(() => {
+    // Clear stale state when navigating between content items
+    setPreviewData(null);
+    setAssetUrl(null);
+    setAssetFormat(null);
+    setEditedHtml("");
+    setShowHtmlSource(false);
+    setShowPreview(false);
+
     Promise.all([
       getContentItem(id),
       getLanguages(true),
@@ -273,6 +297,7 @@ export default function ContentDetailPage({
         asset_url: string;
         format: string;
         rendered_html: string;
+        render_source: string;
       };
       setAssetUrl(data.asset_url);
       setAssetFormat(data.format);
@@ -289,6 +314,74 @@ export default function ContentDetailPage({
       }
     } finally {
       setRendering(false);
+    }
+  };
+
+  const handleCreatePreview = async () => {
+    setPreviewing(true);
+    setError("");
+    setPreviewData(null);
+    setAssetUrl(null);
+    try {
+      const res = await previewContent(id);
+      const data = res.data as {
+        render_source: string;
+        rendered_html: string;
+        edit_url: string;
+        canva_design_id: string;
+      };
+      setPreviewData(data);
+      setEditedHtml(data.rendered_html || "");
+      setShowHtmlSource(false);
+      setSuccess("Preview created. Review and edit before final render.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError("Preview generation failed.");
+      }
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const handleRenderFinal = async () => {
+    setRenderingFinal(true);
+    setError("");
+    try {
+      const payload: { html?: string; canva_design_id?: string } = {};
+      if (previewData?.render_source === "canva" && previewData.canva_design_id) {
+        payload.canva_design_id = previewData.canva_design_id;
+      } else if (previewData?.render_source === "builtin" && editedHtml) {
+        payload.html = editedHtml;
+      }
+      // For figma: no payload needed, backend re-fetches SVG
+
+      const res = await renderFinal(id, payload);
+      const data = res.data as {
+        file_name: string;
+        asset_url: string;
+        format: string;
+        rendered_html: string;
+        render_source: string;
+      };
+      setAssetUrl(data.asset_url);
+      setAssetFormat(data.format);
+      setContent((prev) =>
+        prev ? { ...prev, rendered_html: data.rendered_html } : prev
+      );
+      setPreviewData(null);
+      setSuccess("Visual asset rendered successfully.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError("Final rendering failed.");
+      }
+    } finally {
+      setRenderingFinal(false);
     }
   };
 
@@ -547,17 +640,37 @@ export default function ContentDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isVisualType && (
+          {isVisualType && !previewData && (
             <Button
               size="sm"
-              onClick={handleRender}
-              loading={rendering}
-              icon={<Image size={14} />}
+              onClick={handleCreatePreview}
+              loading={previewing}
+              icon={<Eye size={14} />}
             >
-              Render Visual
+              Create Preview
             </Button>
           )}
-          {(content.rendered_html || assetUrl) && (
+          {isVisualType && previewData && (
+            <Button
+              size="sm"
+              onClick={handleRenderFinal}
+              loading={renderingFinal}
+              icon={<Image size={14} />}
+            >
+              Render &amp; Download
+            </Button>
+          )}
+          {previewData && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewData(null)}
+              icon={<Pencil size={14} />}
+            >
+              Back to Edit
+            </Button>
+          )}
+          {!previewData && (content.rendered_html || assetUrl) && (
             <Button
               variant="ghost"
               size="sm"
@@ -742,6 +855,110 @@ export default function ContentDetailPage({
             </Button>
           </div>
         </Card>
+      )}
+
+      {/* Editable Preview Panel */}
+      {previewData && (
+        <FormSection
+          title={`Preview — ${previewData.render_source === "canva" ? "Canva" : previewData.render_source === "figma" ? "Figma" : "Built-in"}`}
+          className="mb-6"
+        >
+          <div className="space-y-4">
+            {/* Canva: show edit link */}
+            {previewData.render_source === "canva" && previewData.edit_url && (
+              <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4">
+                <p className="text-sm text-zinc-400 mb-3">
+                  Your design has been created in Canva. Open it to make edits, then come back and click &quot;Render &amp; Download&quot;.
+                </p>
+                <a
+                  href={previewData.edit_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <ExternalLink size={14} />
+                  Open in Canva
+                </a>
+              </div>
+            )}
+
+            {/* Figma: show edit link + HTML preview */}
+            {previewData.render_source === "figma" && (
+              <div className="space-y-3">
+                {previewData.edit_url && (
+                  <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4">
+                    <p className="text-sm text-zinc-400 mb-3">
+                      Edit the design in Figma if needed. The preview below shows the current state.
+                    </p>
+                    <a
+                      href={previewData.edit_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <ExternalLink size={14} />
+                      Open in Figma
+                    </a>
+                  </div>
+                )}
+                {previewData.rendered_html && (
+                  <div className="border border-[var(--border-subtle)] rounded-lg overflow-hidden bg-white">
+                    <iframe
+                      srcDoc={previewData.rendered_html}
+                      className="w-full"
+                      style={{ height: "600px" }}
+                      sandbox="allow-same-origin"
+                      title="Figma preview"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Built-in: show HTML iframe + source editor toggle */}
+            {previewData.render_source === "builtin" && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={showHtmlSource ? "ghost" : "primary"}
+                    size="sm"
+                    onClick={() => setShowHtmlSource(false)}
+                    icon={<Eye size={14} />}
+                  >
+                    Visual Preview
+                  </Button>
+                  <Button
+                    variant={showHtmlSource ? "primary" : "ghost"}
+                    size="sm"
+                    onClick={() => setShowHtmlSource(true)}
+                    icon={<Code size={14} />}
+                  >
+                    HTML Source
+                  </Button>
+                </div>
+
+                {showHtmlSource ? (
+                  <textarea
+                    value={editedHtml}
+                    onChange={(e) => setEditedHtml(e.target.value)}
+                    className="w-full h-[500px] bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-3 text-xs font-mono text-zinc-300 focus:outline-none focus:border-indigo-500/50 resize-y"
+                    spellCheck={false}
+                  />
+                ) : (
+                  <div className="border border-[var(--border-subtle)] rounded-lg overflow-hidden bg-white">
+                    <iframe
+                      srcDoc={editedHtml}
+                      className="w-full"
+                      style={{ height: "600px" }}
+                      sandbox="allow-same-origin"
+                      title="Built-in preview"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </FormSection>
       )}
 
       {/* Rendered Asset Preview */}

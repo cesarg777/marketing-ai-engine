@@ -180,7 +180,15 @@ export const getContentVersions = (id: string) =>
   api.get(`/content/${id}/versions`);
 
 export const renderContent = (id: string) =>
-  api.post(`/content/${id}/render`);
+  directApi.post(`/content/${id}/render`); // uses directApi — Playwright rendering can take 30-60s
+
+export const previewContent = (id: string) =>
+  directApi.post(`/content/${id}/preview`);
+
+export const renderFinal = (id: string, data: {
+  html?: string;
+  canva_design_id?: string;
+}) => directApi.post(`/content/${id}/render-final`, data);
 
 // --- Amplification ---
 export const getAmplificationCandidates = () =>

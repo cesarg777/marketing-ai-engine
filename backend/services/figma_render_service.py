@@ -189,3 +189,92 @@ svg {{ width: 100%; height: 100%; }}
         "rendered_html": rendered_html,
         "format": output_format,
     }
+
+
+def preview_figma_content(
+    db: Session,
+    org_id: str,
+    design_source: dict,
+    content_data: dict,
+    content_type: str,
+    brand_context: dict,
+) -> dict | None:
+    """Generate HTML preview from Figma design without Playwright rendering.
+
+    Returns dict with figma_edit_url and rendered_html, or None on failure.
+    """
+    config = get_org_config(db, org_id, "figma_config")
+    if not config:
+        logger.warning("Figma not connected for org %s", org_id)
+        return None
+
+    token = config.get("token", "")
+    file_key = design_source.get("file_key", "")
+    node_id = design_source.get("frame_id", "")
+    field_map = design_source.get("field_map", {})
+
+    if not token or not file_key or not node_id:
+        logger.warning("Incomplete Figma design_source config")
+        return None
+
+    # Get SVG (from cache or Figma API)
+    try:
+        svg_content = _get_cached_svg(file_key, node_id)
+        if not svg_content:
+            from backend.services.figma_service import export_frame_svg, download_content
+            svg_url = export_frame_svg(token, file_key, node_id)
+            svg_bytes = download_content(svg_url)
+            svg_content = svg_bytes.decode("utf-8")
+            _save_cached_svg(file_key, node_id, svg_content)
+    except Exception as e:
+        logger.error("Figma SVG export failed for org %s: %s", org_id, e)
+        return None
+
+    # Build text replacements
+    from tools.content.render_asset import _replace_svg_text, _normalize_visual_data, TEMPLATE_MAP
+    normalized = _normalize_visual_data(content_type, content_data)
+
+    replacements: dict[str, str] = {}
+    for field_name, layer_name in field_map.items():
+        value = normalized.get(field_name, "")
+        if isinstance(value, str) and value:
+            replacements[layer_name] = value
+        elif isinstance(value, list):
+            parts = []
+            for item in value:
+                if isinstance(item, dict):
+                    parts.append(f"{item.get('headline', '')}\n{item.get('body', '')}")
+                elif isinstance(item, str):
+                    parts.append(item)
+            if parts:
+                replacements[layer_name] = "\n\n".join(parts)
+
+    replacements["brand_name"] = brand_context.get("name", "")
+    replacements["brand_website"] = brand_context.get("website", "")
+
+    modified_svg = _replace_svg_text(svg_content, replacements)
+
+    # Build HTML preview (no Playwright)
+    config_entry = TEMPLATE_MAP.get(content_type, {"width": 1080, "height": 1080})
+    dimensions = design_source.get("dimensions", {})
+    width = dimensions.get("width", config_entry["width"])
+    height = dimensions.get("height", config_entry["height"])
+
+    rendered_html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ width: {width}px; height: {height}px; overflow: hidden; background: white; }}
+svg {{ width: 100%; height: 100%; }}
+</style>
+</head>
+<body>{modified_svg}</body>
+</html>"""
+
+    figma_edit_url = f"https://www.figma.com/file/{file_key}?node-id={node_id}"
+
+    logger.info("Figma preview generated for %s:%s", file_key, node_id)
+    return {
+        "figma_edit_url": figma_edit_url,
+        "rendered_html": rendered_html,
+    }

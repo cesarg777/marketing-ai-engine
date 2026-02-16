@@ -104,6 +104,7 @@ export interface TemplateField {
 
 export interface ContentItem {
   id: string;
+  org_id: string;
   problem_id: string | null;
   template_id: string;
   title: string;
