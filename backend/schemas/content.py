@@ -43,6 +43,7 @@ class ContentItemResponse(BaseModel):
     status: str
     content_data: dict
     rendered_html: str | None
+    canva_design_id: str | None
     tone: str
     generation_model: str
     generation_tokens: int

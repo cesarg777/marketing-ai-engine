@@ -113,6 +113,7 @@ export interface ContentItem {
   status: string;
   content_data: Record<string, unknown>;
   rendered_html: string | null;
+  canva_design_id: string | null;
   tone: string;
   generation_model: string;
   generation_tokens: number;

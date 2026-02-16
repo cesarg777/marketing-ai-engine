@@ -178,7 +178,21 @@ export default function ContentDetailPage({
         // Fetch template for field structure
         try {
           const tplRes = await getTemplate(c.template_id);
-          setTemplate(tplRes.data as ContentTemplate);
+          const tpl = tplRes.data as ContentTemplate;
+          setTemplate(tpl);
+
+          // Restore Canva preview state from DB if user left mid-flow
+          if (
+            c.canva_design_id &&
+            tpl.design_source?.provider === "canva"
+          ) {
+            setPreviewData({
+              render_source: "canva",
+              rendered_html: "",
+              edit_url: `https://www.canva.com/design/${c.canva_design_id}/edit`,
+              canva_design_id: c.canva_design_id,
+            });
+          }
         } catch {
           // Template may have been deleted — still show content
         }
@@ -351,8 +365,9 @@ export default function ContentDetailPage({
     setError("");
     try {
       const payload: { html?: string; canva_design_id?: string } = {};
-      if (previewData?.render_source === "canva" && previewData.canva_design_id) {
-        payload.canva_design_id = previewData.canva_design_id;
+      const canvaId = previewData?.canva_design_id || content?.canva_design_id;
+      if (previewData?.render_source === "canva" && canvaId) {
+        payload.canva_design_id = canvaId;
       } else if (previewData?.render_source === "builtin" && editedHtml) {
         payload.html = editedHtml;
       }
@@ -997,10 +1012,15 @@ export default function ContentDetailPage({
       {/* Preview Mode (rendered HTML) */}
       {showPreview && content.rendered_html && !assetUrl ? (
         <FormSection title="Rendered Preview" className="mb-6">
-          <div
-            className="prose prose-invert prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: content.rendered_html }}
-          />
+          <div className="border border-[var(--border-subtle)] rounded-lg overflow-hidden bg-white">
+            <iframe
+              srcDoc={content.rendered_html}
+              className="w-full"
+              style={{ height: "600px" }}
+              sandbox="allow-same-origin"
+              title="Rendered preview"
+            />
+          </div>
         </FormSection>
       ) : (
         /* Edit Mode */

@@ -17,6 +17,7 @@ import mimetypes
 import re as _re
 import uuid
 import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as SafeET
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -284,7 +285,7 @@ def _render_overlay_html(
         parts.append(
             f'<div style="position:absolute;top:{y}px;left:{x}px;'
             f"width:{w}px;height:{h}px;"
-            f"font-size:{font_size}px;font_weight:{font_weight};"
+            f"font-size:{font_size}px;font-weight:{font_weight};"
             f"font-family:'{font_family}',sans-serif;color:{color};"
             f"text-align:{align};line-height:{line_height};"
             f"text-transform:{text_transform};padding:{padding}px;"
@@ -409,16 +410,35 @@ def _get_svg_assets(template_assets: list[dict] | None, content_type: str) -> di
 
 
 def _load_svg_content(url: str) -> str:
-    """Load SVG content from a URL or file path."""
+    """Load SVG content from a URL or file path.
+
+    Security: local file access is restricted to TEMPLATES_DIR and TMP_DIR.
+    """
     if url.startswith("file://"):
-        path = url.replace("file://", "")
-        return Path(path).read_text(encoding="utf-8")
+        path = Path(url.replace("file://", "")).resolve()
+        _validate_local_path(path)
+        return path.read_text(encoding="utf-8")
     elif url.startswith("http"):
         import urllib.request
-        with urllib.request.urlopen(url) as resp:
-            return resp.read().decode("utf-8")
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            data = resp.read(10 * 1024 * 1024)  # 10 MB limit
+            return data.decode("utf-8")
     else:
-        return Path(url).read_text(encoding="utf-8")
+        path = Path(url).resolve()
+        _validate_local_path(path)
+        return path.read_text(encoding="utf-8")
+
+
+# Allowed directories for local file reads
+_ALLOWED_DIRS = [TEMPLATES_DIR.resolve(), RENDERS_DIR.resolve(), Config.TMP_DIR.resolve()]
+
+
+def _validate_local_path(path: Path) -> None:
+    """Ensure a resolved path is within allowed directories."""
+    for allowed in _ALLOWED_DIRS:
+        if str(path).startswith(str(allowed)):
+            return
+    raise PermissionError(f"Access denied: {path} is outside allowed directories")
 
 
 def _replace_svg_text(svg_content: str, replacements: dict) -> str:
@@ -438,7 +458,7 @@ def _replace_svg_text(svg_content: str, replacements: dict) -> str:
     ET.register_namespace("", "http://www.w3.org/2000/svg")
     ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
 
-    root = ET.fromstring(svg_content)
+    root = SafeET.fromstring(svg_content)
     ns = {"svg": "http://www.w3.org/2000/svg"}
 
     def _find_text_elements(element, field_name):

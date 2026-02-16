@@ -335,8 +335,19 @@ def wait_for_export(access_token: str, export_id: str, max_wait: int = 60) -> li
     raise TimeoutError(f"Export job {export_id} did not complete within {max_wait}s")
 
 
+MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
 def download_file(url: str) -> bytes:
-    """Download exported file from Canva CDN URL."""
-    resp = requests.get(url, timeout=60)
+    """Download exported file from Canva CDN URL (max 50 MB)."""
+    resp = requests.get(url, timeout=60, stream=True)
     resp.raise_for_status()
-    return resp.content
+    chunks = []
+    total = 0
+    for chunk in resp.iter_content(chunk_size=8192):
+        total += len(chunk)
+        if total > MAX_DOWNLOAD_BYTES:
+            resp.close()
+            raise ValueError(f"Download exceeds {MAX_DOWNLOAD_BYTES // (1024*1024)} MB limit")
+        chunks.append(chunk)
+    return b"".join(chunks)

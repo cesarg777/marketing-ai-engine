@@ -67,6 +67,13 @@ def run_migrations():
                 if not is_sqlite
                 else "ALTER TABLE content_templates ADD COLUMN design_source TEXT DEFAULT NULL",
             ),
+            (
+                "content_items",
+                "canva_design_id",
+                "ALTER TABLE content_items ADD COLUMN canva_design_id VARCHAR(200) DEFAULT NULL"
+                if not is_sqlite
+                else "ALTER TABLE content_items ADD COLUMN canva_design_id TEXT DEFAULT NULL",
+            ),
         ]
         for table, column, ddl in migrations:
             existing = [c["name"] for c in inspector.get_columns(table)]

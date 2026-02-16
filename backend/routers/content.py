@@ -304,11 +304,19 @@ def preview_content(
         logger.exception("Preview failed for content %s", content_id)
         raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)[:200]}")
 
+    # Persist canva_design_id so the user can resume after closing the browser
+    new_canva_id = result.get("canva_design_id", "")
+    if new_canva_id:
+        item.canva_design_id = new_canva_id
+    else:
+        item.canva_design_id = None
+    db.commit()
+
     return PreviewResponse(
         render_source=result["render_source"],
         rendered_html=result.get("rendered_html", ""),
         edit_url=result.get("edit_url", ""),
-        canva_design_id=result.get("canva_design_id", ""),
+        canva_design_id=new_canva_id,
     )
 
 
@@ -340,6 +348,9 @@ def render_final(
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
 
+    # Fall back to DB-stored canva_design_id if not provided in request
+    canva_design_id = data.canva_design_id or item.canva_design_id
+
     from backend.services.render_service import render_from_preview
     try:
         result = render_from_preview(
@@ -347,11 +358,16 @@ def render_final(
             item=item,
             template=template,
             html=data.html,
-            canva_design_id=data.canva_design_id,
+            canva_design_id=canva_design_id,
         )
     except Exception as e:
         logger.exception("Final render failed for content %s", content_id)
         raise HTTPException(status_code=500, detail=f"Rendering failed: {str(e)[:200]}")
+
+    # Clear canva_design_id after successful export
+    if canva_design_id and item.canva_design_id:
+        item.canva_design_id = None
+        db.commit()
 
     return RenderResponse(
         file_name=result["file_name"],

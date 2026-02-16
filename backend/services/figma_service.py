@@ -143,8 +143,19 @@ def export_frame_png(token: str, file_key: str, node_id: str, scale: float = 2.0
     return url
 
 
+MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
 def download_content(url: str) -> bytes:
-    """Download content from a Figma CDN URL."""
-    resp = requests.get(url, timeout=60)
+    """Download content from a Figma CDN URL (max 50 MB)."""
+    resp = requests.get(url, timeout=60, stream=True)
     resp.raise_for_status()
-    return resp.content
+    chunks = []
+    total = 0
+    for chunk in resp.iter_content(chunk_size=8192):
+        total += len(chunk)
+        if total > MAX_DOWNLOAD_BYTES:
+            resp.close()
+            raise ValueError(f"Download exceeds {MAX_DOWNLOAD_BYTES // (1024*1024)} MB limit")
+        chunks.append(chunk)
+    return b"".join(chunks)

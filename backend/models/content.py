@@ -19,6 +19,7 @@ class ContentItem(Base):
     status = Column(String(20), default="draft")
     content_data = Column(JSON, nullable=False)
     rendered_html = Column(Text, nullable=True)
+    canva_design_id = Column(String(200), nullable=True)
     tone = Column(String(50), default="professional")
     generation_model = Column(String(50), default="")
     generation_tokens = Column(Integer, default=0)
