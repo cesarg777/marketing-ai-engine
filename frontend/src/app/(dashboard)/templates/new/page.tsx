@@ -639,9 +639,8 @@ export default function NewTemplatePage() {
           onBufferedFilesChange={setPendingAssets}
         />
 
-        {/* Design Source (only for visual content types) */}
-        {isVisualType && (
-          <FormSection title="Design Source">
+        {/* Design Source */}
+        <FormSection title="Design Source">
             <p className="text-xs text-zinc-600 mb-4">
               Link an editable design from Figma or Canva to render professional-quality assets. Falls back to the built-in engine when no design is linked.
             </p>
@@ -944,7 +943,6 @@ export default function NewTemplatePage() {
               </div>
             )}
           </FormSection>
-        )}
 
         {/* System Prompt */}
         <FormSection title="System Prompt (optional)">

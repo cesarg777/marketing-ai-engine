@@ -875,8 +875,8 @@ export default function TemplateDetailPage({
         {/* Assets & References */}
         {!isSystem && <TemplateAssetsUpload templateId={id} />}
 
-        {/* Design Source (only for visual content types, non-system templates) */}
-        {isVisualType && !isSystem && (
+        {/* Design Source (non-system templates) */}
+        {!isSystem && (
           <FormSection title="Design Source">
             <p className="text-xs text-zinc-600 mb-4">
               Link an editable design from Figma to render professional-quality assets. Falls back to the built-in engine when no design is linked.
