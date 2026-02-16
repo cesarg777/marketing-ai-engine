@@ -53,6 +53,7 @@ const CONTENT_TYPES = [
   { value: "meet_the_team", label: "Meet the Team" },
   { value: "case_study", label: "Case Study" },
   { value: "meme", label: "Meme" },
+  { value: "infografia", label: "Infografía" },
   { value: "avatar_video", label: "Avatar Video" },
   { value: "linkedin_post", label: "LinkedIn Post" },
   { value: "blog_post", label: "Blog Post" },

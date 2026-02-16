@@ -1,8 +1,31 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createTemplate, uploadTemplateAsset } from "@/lib/api";
-import { LayoutTemplate, ArrowLeft, Plus, Trash2, Link2, X } from "lucide-react";
+import {
+  createTemplate,
+  uploadTemplateAsset,
+  getFigmaStatus,
+  browseFigmaFile,
+  getFigmaTextNodes,
+  getCanvaStatus,
+  listCanvaBrandTemplates,
+  getCanvaTemplateDataset,
+} from "@/lib/api";
+import type { FigmaPage, FigmaTextNode, CanvaTemplate, CanvaField } from "@/lib/api";
+import {
+  LayoutTemplate,
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Link2,
+  X,
+  Figma,
+  Loader2,
+  ArrowRight,
+  Check,
+  Palette,
+  Search,
+} from "lucide-react";
 import { TemplateAssetsUpload, type BufferedAsset } from "@/components/TemplateAssetsUpload";
 import type { ReferenceUrl } from "@/types";
 import Link from "next/link";
@@ -14,6 +37,7 @@ import {
   Textarea,
   Button,
   Alert,
+  Badge,
 } from "@/components/ui";
 
 const CONTENT_TYPES = [
@@ -30,7 +54,9 @@ const CONTENT_TYPES = [
 
 const FIELD_TYPES = ["text", "textarea", "number", "url", "list", "image"];
 
-/** Default field structures for visual content types.
+const VISUAL_TYPES = ["carousel", "meet_the_team", "case_study", "meme", "infografia"];
+
+/** Default field structures per content type.
  *  Auto-populated when user selects a content_type — editable afterwards. */
 const DEFAULT_STRUCTURES: Record<string, FieldDef[]> = {
   carousel: [
@@ -74,6 +100,34 @@ const DEFAULT_STRUCTURES: Record<string, FieldDef[]> = {
     { name: "social_caption", type: "textarea", required: true, description: "LinkedIn/Instagram caption" },
     { name: "social_hashtags", type: "text", required: true, description: "3-5 relevant hashtags" },
   ],
+  linkedin_post: [
+    { name: "hook", type: "text", required: true, description: "Opening line that grabs attention" },
+    { name: "body", type: "textarea", required: true, description: "Main post content (1300 chars max)" },
+    { name: "cta", type: "text", required: false, description: "Call to action or question" },
+    { name: "hashtags", type: "text", required: false, description: "3-5 relevant hashtags" },
+  ],
+  blog_post: [
+    { name: "title", type: "text", required: true, description: "Blog post title (SEO-optimized)" },
+    { name: "meta_description", type: "text", required: true, description: "SEO meta description (155 chars)" },
+    { name: "introduction", type: "textarea", required: true, description: "Opening paragraph with hook" },
+    { name: "body", type: "textarea", required: true, description: "Main article content with sections" },
+    { name: "conclusion", type: "textarea", required: true, description: "Summary and call to action" },
+    { name: "tags", type: "text", required: false, description: "Blog categories/tags" },
+  ],
+  newsletter: [
+    { name: "subject_line", type: "text", required: true, description: "Email subject line" },
+    { name: "preview_text", type: "text", required: true, description: "Email preview text (90 chars)" },
+    { name: "greeting", type: "text", required: false, description: "Personalized greeting" },
+    { name: "body", type: "textarea", required: true, description: "Main newsletter content" },
+    { name: "cta", type: "text", required: true, description: "Primary call to action" },
+    { name: "cta_url", type: "url", required: false, description: "CTA link URL" },
+  ],
+  avatar_video: [
+    { name: "title", type: "text", required: true, description: "Video title" },
+    { name: "script", type: "textarea", required: true, description: "Full video script for the avatar" },
+    { name: "cta", type: "text", required: false, description: "Closing call to action" },
+    { name: "social_caption", type: "textarea", required: false, description: "Caption for social post" },
+  ],
 };
 
 /** Sanitize a field name to snake_case (only a-z, 0-9, underscores). */
@@ -105,6 +159,42 @@ export default function NewTemplatePage() {
   const [referenceUrls, setReferenceUrls] = useState<ReferenceUrl[]>([]);
   const [pendingAssets, setPendingAssets] = useState<BufferedAsset[]>([]);
 
+  // Design Source state
+  const [designProvider, setDesignProvider] = useState<"builtin" | "figma" | "canva">("builtin");
+  const [figmaConnected, setFigmaConnected] = useState(false);
+  const [figmaFileUrl, setFigmaFileUrl] = useState("");
+  const [figmaFileKey, setFigmaFileKey] = useState("");
+  const [figmaPages, setFigmaPages] = useState<FigmaPage[]>([]);
+  const [figmaFileName, setFigmaFileName] = useState("");
+  const [selectedFrameId, setSelectedFrameId] = useState("");
+  const [selectedFrameName, setSelectedFrameName] = useState("");
+  const [figmaTextNodes, setFigmaTextNodes] = useState<FigmaTextNode[]>([]);
+  const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
+  const [figmaLoading, setFigmaLoading] = useState(false);
+  const [figmaError, setFigmaError] = useState("");
+
+  // Canva Design Source state
+  const [canvaConnected, setCanvaConnected] = useState(false);
+  const [canvaTemplates, setCanvaTemplates] = useState<CanvaTemplate[]>([]);
+  const [selectedCanvaTemplateId, setSelectedCanvaTemplateId] = useState("");
+  const [selectedCanvaTemplateName, setSelectedCanvaTemplateName] = useState("");
+  const [canvaFields, setCanvaFields] = useState<CanvaField[]>([]);
+  const [canvaFieldMapping, setCanvaFieldMapping] = useState<Record<string, string>>({});
+  const [canvaLoading, setCanvaLoading] = useState(false);
+  const [canvaError, setCanvaError] = useState("");
+
+  const isVisualType = VISUAL_TYPES.includes(contentType);
+
+  // Check design tool connection status on mount
+  useEffect(() => {
+    getFigmaStatus()
+      .then((r) => setFigmaConnected(r.data.connected))
+      .catch(() => {});
+    getCanvaStatus()
+      .then((r) => setCanvaConnected(r.data.connected))
+      .catch(() => {});
+  }, []);
+
   // Auto-generate slug from name
   useEffect(() => {
     setSlug(
@@ -135,6 +225,151 @@ export default function NewTemplatePage() {
 
   const updateField = (idx: number, key: keyof FieldDef, value: string | boolean | number) => {
     setFields(fields.map((f, i) => (i === idx ? { ...f, [key]: value } : f)));
+  };
+
+  // --- Design Source helpers ---
+  const parseFigmaUrl = (url: string): string | null => {
+    const m = url.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
+    return m ? m[1] : null;
+  };
+
+  const handleLoadFigmaFile = async () => {
+    setFigmaError("");
+    const key = parseFigmaUrl(figmaFileUrl);
+    if (!key) {
+      setFigmaError("Invalid Figma URL. Paste a link like https://www.figma.com/design/FILEKEY/...");
+      return;
+    }
+    setFigmaFileKey(key);
+    setFigmaLoading(true);
+    try {
+      const res = await browseFigmaFile(key);
+      setFigmaPages(res.data.pages);
+      setFigmaFileName(res.data.name);
+      if (!selectedFrameId) {
+        setSelectedFrameId("");
+        setFigmaTextNodes([]);
+        setFieldMapping({});
+      }
+    } catch {
+      setFigmaError("Could not load Figma file. Check the URL and your connection in Settings.");
+      setFigmaPages([]);
+    } finally {
+      setFigmaLoading(false);
+    }
+  };
+
+  const handleSelectFrame = async (frameId: string, frameName: string) => {
+    setSelectedFrameId(frameId);
+    setSelectedFrameName(frameName);
+    setFigmaError("");
+    if (!frameId || !figmaFileKey) return;
+    setFigmaLoading(true);
+    try {
+      const res = await getFigmaTextNodes(figmaFileKey, frameId);
+      setFigmaTextNodes(res.data);
+      const autoMap: Record<string, string> = {};
+      for (const f of fields) {
+        const normalField = f.name.toLowerCase().replace(/_/g, " ");
+        const match = res.data.find((tn: FigmaTextNode) => {
+          const normalNode = tn.name.toLowerCase().replace(/_/g, " ");
+          return normalNode === normalField || normalNode.includes(normalField) || normalField.includes(normalNode);
+        });
+        if (match) autoMap[f.name] = match.name;
+      }
+      setFieldMapping((prev) => {
+        const merged = { ...autoMap };
+        for (const [k, v] of Object.entries(prev)) {
+          if (v && fields.some((f) => f.name === k)) merged[k] = v;
+        }
+        return merged;
+      });
+    } catch {
+      setFigmaError("Could not load text layers from this frame.");
+      setFigmaTextNodes([]);
+    } finally {
+      setFigmaLoading(false);
+    }
+  };
+
+  const handleBrowseCanvaTemplates = async () => {
+    setCanvaError("");
+    setCanvaLoading(true);
+    try {
+      const res = await listCanvaBrandTemplates();
+      setCanvaTemplates(res.data.templates);
+      if (res.data.templates.length === 0) {
+        setCanvaError("No brand templates found in your Canva account.");
+      }
+    } catch {
+      setCanvaError("Could not load Canva templates. Check your connection in Settings.");
+      setCanvaTemplates([]);
+    } finally {
+      setCanvaLoading(false);
+    }
+  };
+
+  const handleSelectCanvaTemplate = async (templateId: string) => {
+    const tpl = canvaTemplates.find((t) => t.id === templateId);
+    setSelectedCanvaTemplateId(templateId);
+    setSelectedCanvaTemplateName(tpl?.title || "");
+    setCanvaError("");
+    if (!templateId) return;
+    setCanvaLoading(true);
+    try {
+      const res = await getCanvaTemplateDataset(templateId);
+      setCanvaFields(res.data.fields);
+      const autoMap: Record<string, string> = {};
+      for (const f of fields) {
+        const normalField = f.name.toLowerCase().replace(/_/g, " ");
+        const match = res.data.fields.find((cf: CanvaField) => {
+          const normalCanva = cf.name.toLowerCase().replace(/_/g, " ");
+          return normalCanva === normalField || normalCanva.includes(normalField) || normalField.includes(normalCanva);
+        });
+        if (match) autoMap[f.name] = match.name;
+      }
+      setCanvaFieldMapping((prev) => {
+        const merged = { ...autoMap };
+        for (const [k, v] of Object.entries(prev)) {
+          if (v && fields.some((f) => f.name === k)) merged[k] = v;
+        }
+        return merged;
+      });
+    } catch {
+      setCanvaError("Could not load template fields.");
+      setCanvaFields([]);
+    } finally {
+      setCanvaLoading(false);
+    }
+  };
+
+  const buildDesignSource = (): Record<string, unknown> | null => {
+    if (designProvider === "figma" && figmaFileKey && selectedFrameId) {
+      const fm: Record<string, string> = {};
+      for (const [k, v] of Object.entries(fieldMapping)) {
+        if (v) fm[k] = v;
+      }
+      return {
+        provider: "figma",
+        file_key: figmaFileKey,
+        frame_id: selectedFrameId,
+        frame_name: selectedFrameName,
+        field_map: fm,
+      };
+    }
+    if (designProvider === "canva" && selectedCanvaTemplateId) {
+      const fm: Record<string, string> = {};
+      for (const [k, v] of Object.entries(canvaFieldMapping)) {
+        if (v) fm[k] = v;
+      }
+      return {
+        provider: "canva",
+        template_id: selectedCanvaTemplateId,
+        template_name: selectedCanvaTemplateName,
+        field_map: fm,
+      };
+    }
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -171,6 +406,7 @@ export default function NewTemplatePage() {
         system_prompt: systemPrompt.trim(),
         default_tone: defaultTone,
         reference_urls: validUrls,
+        design_source: buildDesignSource(),
       });
 
       const templateId = res.data.id;
@@ -402,6 +638,313 @@ export default function NewTemplatePage() {
           bufferedFiles={pendingAssets}
           onBufferedFilesChange={setPendingAssets}
         />
+
+        {/* Design Source (only for visual content types) */}
+        {isVisualType && (
+          <FormSection title="Design Source">
+            <p className="text-xs text-zinc-600 mb-4">
+              Link an editable design from Figma or Canva to render professional-quality assets. Falls back to the built-in engine when no design is linked.
+            </p>
+
+            {/* Provider tabs */}
+            <div className="flex gap-1 mb-4 bg-[var(--surface-input)] p-1 rounded-lg w-fit">
+              {[
+                { key: "builtin" as const, label: "Built-in" },
+                { key: "figma" as const, label: "Figma" },
+                { key: "canva" as const, label: "Canva" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setDesignProvider(tab.key)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    designProvider === tab.key
+                      ? "bg-[var(--surface-base)] text-zinc-100 shadow-sm"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Built-in info */}
+            {designProvider === "builtin" && (
+              <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4">
+                <p className="text-sm text-zinc-400">
+                  Using the built-in rendering engine. Text zones are positioned on the template background using field zone settings.
+                </p>
+              </div>
+            )}
+
+            {/* Figma panel */}
+            {designProvider === "figma" && (
+              <div className="space-y-4">
+                {!figmaConnected && (
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 flex items-center gap-3">
+                    <Figma size={16} className="text-amber-400 shrink-0" />
+                    <p className="text-xs text-amber-300">
+                      Figma is not connected.{" "}
+                      <Link href="/settings" className="underline hover:text-amber-200">
+                        Connect in Settings
+                      </Link>{" "}
+                      first.
+                    </p>
+                  </div>
+                )}
+
+                {figmaConnected && (
+                  <>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          label="Figma Design Link"
+                          value={figmaFileUrl}
+                          onChange={(e) => setFigmaFileUrl(e.target.value)}
+                          placeholder="https://www.figma.com/design/FILEKEY/Design-Name"
+                        />
+                      </div>
+                      <div className="pt-6">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleLoadFigmaFile}
+                          loading={figmaLoading && figmaPages.length === 0}
+                          disabled={!figmaFileUrl.trim()}
+                        >
+                          Load
+                        </Button>
+                      </div>
+                    </div>
+
+                    {figmaError && <p className="text-xs text-red-400">{figmaError}</p>}
+
+                    {figmaPages.length > 0 && (
+                      <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                        {figmaFileName && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <Figma size={14} className="text-purple-400" />
+                            <span className="text-sm text-zinc-200 font-medium">{figmaFileName}</span>
+                            <Badge variant="info" size="sm">{figmaPages.reduce((sum, p) => sum + p.frames.length, 0)} frames</Badge>
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-xs font-medium text-zinc-400 tracking-wide mb-1.5">
+                            Select Frame
+                          </label>
+                          <select
+                            value={selectedFrameId}
+                            onChange={(e) => {
+                              const fId = e.target.value;
+                              let fName = "";
+                              for (const p of figmaPages) {
+                                const fr = p.frames.find((f) => f.id === fId);
+                                if (fr) { fName = fr.name; break; }
+                              }
+                              handleSelectFrame(fId, fName);
+                            }}
+                            className="w-full bg-[var(--surface-base)] border border-[var(--border-default)] rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors appearance-none"
+                          >
+                            <option value="">Choose a frame...</option>
+                            {figmaPages.map((page) =>
+                              page.frames.map((frame) => (
+                                <option key={frame.id} value={frame.id}>
+                                  {page.name} / {frame.name}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedFrameId && figmaTextNodes.length > 0 && (
+                      <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-medium text-zinc-400 tracking-wide">Field Mapping</h4>
+                          <span className="text-[10px] text-zinc-600">
+                            {Object.values(fieldMapping).filter(Boolean).length} / {fields.length} mapped
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-600">
+                          Map each template field to a Figma text layer. The generated content will replace the text in each mapped layer.
+                        </p>
+                        <div className="space-y-2">
+                          {fields.map((f) => (
+                            <div key={f.name} className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                              <div className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-zinc-300 truncate">
+                                {f.name}
+                              </div>
+                              <ArrowRight size={14} className="text-zinc-600" />
+                              <select
+                                value={fieldMapping[f.name] || ""}
+                                onChange={(e) => setFieldMapping((prev) => ({ ...prev, [f.name]: e.target.value }))}
+                                className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors appearance-none"
+                              >
+                                <option value="">— Not mapped —</option>
+                                {figmaTextNodes.map((tn) => (
+                                  <option key={tn.id} value={tn.name}>
+                                    {tn.name} ({tn.characters.length > 30 ? tn.characters.slice(0, 30) + "..." : tn.characters})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                        {Object.values(fieldMapping).some(Boolean) && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <Check size={14} className="text-emerald-400" />
+                            <span className="text-xs text-emerald-400">
+                              Figma design linked — content will render using your design
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedFrameId && figmaLoading && figmaTextNodes.length === 0 && (
+                      <div className="flex items-center gap-2 text-xs text-zinc-500 py-2">
+                        <Loader2 size={14} className="animate-spin" />
+                        Loading text layers...
+                      </div>
+                    )}
+
+                    {selectedFrameId && !figmaLoading && figmaTextNodes.length === 0 && figmaPages.length > 0 && (
+                      <p className="text-xs text-zinc-600 py-2">
+                        No text layers found in this frame. Select a frame that contains text elements.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Canva panel */}
+            {designProvider === "canva" && (
+              <div className="space-y-4">
+                {!canvaConnected && (
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 flex items-center gap-3">
+                    <Palette size={16} className="text-amber-400 shrink-0" />
+                    <p className="text-xs text-amber-300">
+                      Canva is not connected.{" "}
+                      <Link href="/settings" className="underline hover:text-amber-200">
+                        Connect in Settings
+                      </Link>{" "}
+                      first.
+                    </p>
+                  </div>
+                )}
+
+                {canvaConnected && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleBrowseCanvaTemplates}
+                        loading={canvaLoading && canvaTemplates.length === 0}
+                        icon={<Search size={13} />}
+                      >
+                        Browse Brand Templates
+                      </Button>
+                      {selectedCanvaTemplateName && (
+                        <span className="text-xs text-zinc-400">
+                          Selected: <strong className="text-zinc-200">{selectedCanvaTemplateName}</strong>
+                        </span>
+                      )}
+                    </div>
+
+                    {canvaError && <p className="text-xs text-red-400">{canvaError}</p>}
+
+                    {canvaTemplates.length > 0 && (
+                      <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Palette size={14} className="text-cyan-400" />
+                          <span className="text-sm text-zinc-200 font-medium">Brand Templates</span>
+                          <Badge variant="info" size="sm">{canvaTemplates.length} templates</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                          {canvaTemplates.map((tpl) => (
+                            <button
+                              key={tpl.id}
+                              type="button"
+                              onClick={() => handleSelectCanvaTemplate(tpl.id)}
+                              className={`text-left p-2 rounded-lg border transition-colors ${
+                                selectedCanvaTemplateId === tpl.id
+                                  ? "border-cyan-500/50 bg-cyan-500/5"
+                                  : "border-[var(--border-default)] hover:border-zinc-600"
+                              }`}
+                            >
+                              {tpl.thumbnail?.url && (
+                                <img
+                                  src={tpl.thumbnail.url}
+                                  alt={tpl.title}
+                                  className="w-full h-20 object-cover rounded mb-1.5"
+                                />
+                              )}
+                              <span className="text-xs text-zinc-300 line-clamp-1">{tpl.title}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedCanvaTemplateId && canvaFields.length > 0 && (
+                      <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-medium text-zinc-400 tracking-wide">Field Mapping</h4>
+                          <span className="text-[10px] text-zinc-600">
+                            {Object.values(canvaFieldMapping).filter(Boolean).length} / {fields.length} mapped
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-600">
+                          Map each template field to a Canva autofill field. Generated content will populate these fields automatically.
+                        </p>
+                        <div className="space-y-2">
+                          {fields.map((f) => (
+                            <div key={f.name} className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                              <div className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-zinc-300 truncate">
+                                {f.name}
+                              </div>
+                              <ArrowRight size={14} className="text-zinc-600" />
+                              <select
+                                value={canvaFieldMapping[f.name] || ""}
+                                onChange={(e) => setCanvaFieldMapping((prev) => ({ ...prev, [f.name]: e.target.value }))}
+                                className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-md px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-[var(--border-focus)] transition-colors appearance-none"
+                              >
+                                <option value="">— Not mapped —</option>
+                                {canvaFields.map((cf) => (
+                                  <option key={cf.name} value={cf.name}>
+                                    {cf.name} ({cf.type})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ))}
+                        </div>
+                        {Object.values(canvaFieldMapping).some(Boolean) && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <Check size={14} className="text-emerald-400" />
+                            <span className="text-xs text-emerald-400">
+                              Canva template linked — content will render using your brand template
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedCanvaTemplateId && canvaLoading && canvaFields.length === 0 && (
+                      <div className="flex items-center gap-2 text-xs text-zinc-500 py-2">
+                        <Loader2 size={14} className="animate-spin" />
+                        Loading template fields...
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </FormSection>
+        )}
 
         {/* System Prompt */}
         <FormSection title="System Prompt (optional)">
