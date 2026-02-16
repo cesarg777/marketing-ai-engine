@@ -5,13 +5,14 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { checkOnboardingStatus } from "@/lib/api";
 
-type AuthState = "checking" | "onboarded" | "redirecting";
+type AuthState = "checking" | "onboarded" | "redirecting" | "error";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [authState, setAuthState] = useState<AuthState>("checking");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (loading) return;
@@ -38,18 +39,27 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           }
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
-        setAuthState("redirecting");
-        if (pathname !== "/onboarding") {
-          router.replace("/onboarding");
+        // Don't redirect to onboarding on network/server errors — the user may already be onboarded.
+        // 401 is handled by the axios interceptor (redirects to login).
+        // Only redirect to onboarding on 404 (endpoint not found = genuinely not onboarded).
+        const status = err?.response?.status;
+        if (status === 404) {
+          setAuthState("redirecting");
+          if (pathname !== "/onboarding") {
+            router.replace("/onboarding");
+          }
+        } else {
+          // Network or server error — show retry UI instead of wrong redirect
+          setAuthState("error");
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [user, loading, authState, router, pathname]);
+  }, [user, loading, authState, router, pathname, retryCount]);
 
   if (loading || (user && authState === "checking")) {
     return (
@@ -60,6 +70,28 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return null;
+
+  // Show retry UI on network/server errors instead of wrong onboarding redirect
+  if (authState === "error") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--surface-base)]">
+        <div className="text-center max-w-sm">
+          <p className="text-sm text-zinc-400 mb-4">
+            Could not verify your account. Please check your connection and try again.
+          </p>
+          <button
+            onClick={() => {
+              setAuthState("checking");
+              setRetryCount((c) => c + 1);
+            }}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Only render children when onboarding is confirmed
   if (authState !== "onboarded") return null;

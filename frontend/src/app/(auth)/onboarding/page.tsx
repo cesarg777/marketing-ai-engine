@@ -1,17 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { setupOrganization } from "@/lib/api";
+import { setupOrganization, checkOnboardingStatus } from "@/lib/api";
 import { Input, Button, Alert } from "@/components/ui";
 import { Building2, ArrowRight } from "lucide-react";
+import type { AxiosError } from "axios";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
+
+  // Redirect to dashboard if already onboarded
+  useEffect(() => {
+    checkOnboardingStatus()
+      .then((res) => {
+        if ((res.data as { onboarded: boolean }).onboarded) {
+          router.replace("/");
+        } else {
+          setChecking(false);
+        }
+      })
+      .catch(() => {
+        setChecking(false);
+      });
+  }, [router]);
 
   const handleSlugify = (name: string) => {
     setOrgName(name);
@@ -33,13 +50,28 @@ export default function OnboardingPage() {
       await setupOrganization({ org_name: orgName, org_slug: orgSlug });
       router.replace("/");
     } catch (err: unknown) {
+      const axiosErr = err as AxiosError<{ detail?: string }>;
+      // If 409 "already belongs", redirect to dashboard
+      if (axiosErr.response?.status === 409) {
+        router.replace("/");
+        return;
+      }
       const msg =
-        err instanceof Error ? err.message : "Failed to create organization";
+        axiosErr.response?.data?.detail ||
+        (err instanceof Error ? err.message : "Failed to create organization");
       setError(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <>

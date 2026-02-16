@@ -99,6 +99,7 @@ export default function SettingsPage() {
   // Languages state
   const [languages, setLanguages] = useState<Language[]>([]);
   const [showAddLang, setShowAddLang] = useState(false);
+  const [langError, setLangError] = useState("");
   const [newLang, setNewLang] = useState({
     code: "",
     name: "",
@@ -462,10 +463,21 @@ export default function SettingsPage() {
 
   const handleAddLanguage = async () => {
     if (!newLang.code || !newLang.name) return;
-    await createLanguage(newLang);
-    setNewLang({ code: "", name: "", native_name: "", flag_emoji: "" });
-    setShowAddLang(false);
-    loadLanguages();
+    setLangError("");
+    try {
+      await createLanguage(newLang);
+      setNewLang({ code: "", name: "", native_name: "", flag_emoji: "" });
+      setShowAddLang(false);
+      loadLanguages();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      if (msg) {
+        setLangError(msg);
+      } else {
+        setLangError("Failed to create language. Please try again.");
+      }
+      console.error("Create language error:", err);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1013,7 +1025,7 @@ export default function SettingsPage() {
         title="Languages"
         actions={
           <button
-            onClick={() => setShowAddLang(!showAddLang)}
+            onClick={() => { setShowAddLang(!showAddLang); setLangError(""); }}
             className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
           >
             {showAddLang ? (
@@ -1032,34 +1044,39 @@ export default function SettingsPage() {
         className="mb-6"
       >
         {showAddLang && (
-          <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4 grid grid-cols-[80px_1fr_1fr_auto] gap-3 items-end">
-            <Input
-              label="Code"
-              placeholder="fr"
-              value={newLang.code}
-              onChange={(e) =>
-                setNewLang({ ...newLang, code: e.target.value })
-              }
-            />
-            <Input
-              label="Name"
-              placeholder="French"
-              value={newLang.name}
-              onChange={(e) =>
-                setNewLang({ ...newLang, name: e.target.value })
-              }
-            />
-            <Input
-              label="Native Name"
-              placeholder="Fran&ccedil;ais"
-              value={newLang.native_name}
-              onChange={(e) =>
-                setNewLang({ ...newLang, native_name: e.target.value })
-              }
-            />
-            <Button size="sm" onClick={handleAddLanguage}>
-              Add
-            </Button>
+          <div className="space-y-2">
+            {langError && (
+              <Alert variant="error">{langError}</Alert>
+            )}
+            <div className="bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg p-4 grid grid-cols-[80px_1fr_1fr_auto] gap-3 items-end">
+              <Input
+                label="Code"
+                placeholder="fr"
+                value={newLang.code}
+                onChange={(e) =>
+                  setNewLang({ ...newLang, code: e.target.value })
+                }
+              />
+              <Input
+                label="Name"
+                placeholder="French"
+                value={newLang.name}
+                onChange={(e) =>
+                  setNewLang({ ...newLang, name: e.target.value })
+                }
+              />
+              <Input
+                label="Native Name"
+                placeholder="Fran&ccedil;ais"
+                value={newLang.native_name}
+                onChange={(e) =>
+                  setNewLang({ ...newLang, native_name: e.target.value })
+                }
+              />
+              <Button size="sm" onClick={handleAddLanguage}>
+                Add
+              </Button>
+            </div>
           </div>
         )}
 
