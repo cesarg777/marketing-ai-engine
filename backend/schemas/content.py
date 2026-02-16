@@ -57,6 +57,7 @@ class RenderResponse(BaseModel):
     asset_url: str
     format: str
     rendered_html: str
+    render_source: str = "builtin"  # "builtin", "figma", or "canva"
 
 
 class PublicationResponse(BaseModel):

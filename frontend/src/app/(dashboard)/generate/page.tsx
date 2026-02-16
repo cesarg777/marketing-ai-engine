@@ -119,6 +119,7 @@ function GeneratePage() {
   const [customTopic, setCustomTopic] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [selectedCountry, setSelectedCountry] = useState("");
   const [tone, setTone] = useState("professional");
   const [instructions, setInstructions] = useState("");
 
@@ -152,6 +153,7 @@ function GeneratePage() {
         custom_topic: customTopic || undefined,
         template_id: selectedTemplate,
         language: selectedLanguage,
+        country: selectedCountry || undefined,
         tone,
         additional_instructions: instructions,
       });
@@ -201,12 +203,20 @@ function GeneratePage() {
             value={selectedProblem}
             onChange={(e) => {
               setSelectedProblem(e.target.value);
-              if (e.target.value) setCustomTopic("");
+              if (e.target.value) {
+                setCustomTopic("");
+                // Auto-populate language and country from problem
+                const problem = problems.find((p) => p.id === e.target.value);
+                if (problem) {
+                  if (problem.language) setSelectedLanguage(problem.language);
+                  if (problem.country) setSelectedCountry(problem.country);
+                }
+              }
             }}
             placeholder="Select from research..."
             options={problems.map((p) => ({
               value: p.id,
-              label: `[${p.primary_niche}] ${p.title} (severity: ${p.severity})`,
+              label: `[${p.primary_niche}] ${p.title} (${p.country || p.language}) — severity: ${p.severity}`,
             }))}
           />
 
@@ -274,7 +284,7 @@ function GeneratePage() {
 
         {/* Step 3: Options */}
         <FormSection title="3 &middot; Configure">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <Select
               label="Language"
               value={selectedLanguage}
@@ -283,6 +293,13 @@ function GeneratePage() {
                 value: l.code,
                 label: `${l.flag_emoji} ${l.native_name} (${l.code})`,
               }))}
+            />
+            <Input
+              label="Country"
+              value={selectedCountry}
+              onChange={(e) => setSelectedCountry(e.target.value)}
+              placeholder="e.g., US, MX, BR"
+              maxLength={5}
             />
             <Select
               label="Tone"

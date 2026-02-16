@@ -26,6 +26,10 @@ VALID_ASSET_TYPES = {
     "background_image", "header_image", "footer_image",
     "logo_placeholder", "layout_pdf", "custom_image",
     "reference_file",
+    # Design overlay mode assets (background + cover images per zone)
+    "design_background", "design_cover", "design_slide", "design_cta",
+    # SVG template mode assets (editable SVG files per section)
+    "design_svg", "design_svg_cover", "design_svg_slide", "design_svg_cta",
 }
 
 
@@ -135,6 +139,38 @@ def delete_template(
     template.is_active = False
     db.commit()
     return {"detail": "Template deactivated"}
+
+
+@router.put("/{template_id}/design-source", response_model=TemplateResponse)
+def update_design_source(
+    template_id: str,
+    design_source: dict,
+    db: Session = Depends(get_db),
+    org_id: str = Depends(get_current_org_id),
+):
+    """Set or update the design source (Figma/Canva) for a template."""
+    validate_uuid(template_id, "template_id")
+    template = (
+        db.query(ContentTemplate)
+        .filter(ContentTemplate.id == template_id, ContentTemplate.org_id == org_id)
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found or not editable")
+
+    # Validate design_source structure
+    provider = design_source.get("provider")
+    if provider not in ("figma", "canva", None):
+        raise HTTPException(status_code=400, detail="provider must be 'figma', 'canva', or null")
+    if provider == "figma" and not design_source.get("file_key"):
+        raise HTTPException(status_code=400, detail="Figma design_source requires file_key")
+    if provider == "canva" and not design_source.get("template_id"):
+        raise HTTPException(status_code=400, detail="Canva design_source requires template_id")
+
+    template.design_source = design_source if provider else None
+    db.commit()
+    db.refresh(template)
+    return template
 
 
 @router.post("/{template_id}/duplicate", response_model=TemplateResponse)

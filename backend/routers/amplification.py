@@ -32,6 +32,10 @@ class LinkedInConnectRequest(BaseModel):
     access_token: str = Field(..., min_length=10)
 
 
+class NewsletterCreateRequest(BaseModel):
+    content_ids: list[str] = Field(..., min_length=1)
+
+
 class BatchPublishRequest(BaseModel):
     content_ids: list[str]
     channel: str = Field(..., max_length=30)
@@ -144,14 +148,14 @@ def amplify_to_blog(
 
 @router.post("/newsletter")
 def create_newsletter(
-    content_ids: list[str],
+    data: NewsletterCreateRequest,
     db: Session = Depends(get_db),
     org_id: str = Depends(get_current_org_id),
 ):
     """Create a newsletter from selected content items."""
     items = (
         db.query(ContentItem)
-        .filter(ContentItem.id.in_(content_ids), ContentItem.org_id == org_id)
+        .filter(ContentItem.id.in_(data.content_ids), ContentItem.org_id == org_id)
         .all()
     )
     if not items:

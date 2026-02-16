@@ -69,7 +69,7 @@ export default function AmplifyPage() {
     if (filterLanguage) params.language = filterLanguage;
     getAmplifyContent(params)
       .then((r) => setItems(r.data.items || []))
-      .catch(() => {})
+      .catch(() => setError("Failed to load content. Check your connection."))
       .finally(() => setLoading(false));
   };
 
@@ -77,7 +77,7 @@ export default function AmplifyPage() {
     loadContent();
     getPublishChannels()
       .then((r) => setChannels(r.data))
-      .catch(() => {});
+      .catch(() => setError("Failed to load channels."));
   }, []);
 
   useEffect(() => {

@@ -123,6 +123,18 @@ export const deleteTemplate = (id: string) => api.delete(`/templates/${id}`);
 export const duplicateTemplate = (id: string) =>
   api.post(`/templates/${id}/duplicate`);
 
+export const updateDesignSource = (
+  templateId: string,
+  designSource: {
+    provider: string;
+    file_key?: string;
+    frame_id?: string;
+    field_map?: Record<string, string>;
+    template_id?: string;
+    dimensions?: { width: number; height: number };
+  }
+) => api.put(`/templates/${templateId}/design-source`, designSource);
+
 // --- Template Assets ---
 export const getTemplateAssets = (templateId: string) =>
   api.get(`/templates/${templateId}/assets`);
@@ -187,7 +199,7 @@ export const amplifyToBlog = (contentId: string) =>
   api.post("/amplification/blog", null, { params: { content_id: contentId } });
 
 export const createNewsletter = (contentIds: string[]) =>
-  api.post("/amplification/newsletter", contentIds);
+  api.post("/amplification/newsletter", { content_ids: contentIds });
 
 export const createLandingPage = (contentId: string) =>
   api.post("/amplification/landing-page", null, { params: { content_id: contentId } });

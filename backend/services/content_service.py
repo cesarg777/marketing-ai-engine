@@ -31,6 +31,11 @@ def generate_content_item(
             "niche": problem.primary_niche,
             "keywords": problem.keywords,
             "suggested_angles": problem.suggested_angles,
+            "trending_direction": problem.trending_direction,
+            "related_niches": problem.related_niches or [],
+            "source_urls": (problem.source_urls or [])[:5],  # top 5 sources for context
+            "country": problem.country,
+            "severity": problem.severity,
         }
 
     # Fetch org info for brand context

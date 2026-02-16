@@ -258,6 +258,7 @@ def render_content(
         asset_url=result["asset_url"],
         format=result["format"],
         rendered_html=result["rendered_html"],
+        render_source=result.get("render_source", "builtin"),
     )
 
 
